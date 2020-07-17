@@ -8,17 +8,13 @@ import numpy as np
 from matplotlib import pyplot as plt
 import ipywidgets as widgets
 from IPython.display import display, Audio
-from benlib.sound import *
+from .sound import *
 
 # remove glitchy padding around audioplayer widget
 # https://github.com/jupyter-widgets/ipywidgets/issues/1845
 from IPython.core.display import HTML, display as cdisplay
 def rm_out_padding(): cdisplay(HTML("<style>div.output_subarea { padding:unset;}</style>"))
 rm_out_padding()
-
-
-# In[4]:
-
 
 class AudioPlayer(Audio):
 
