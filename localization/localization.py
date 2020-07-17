@@ -38,7 +38,7 @@ class AudioPlayer(Audio):
 
     def _repr_html_(self):
         audio = super()._repr_html_()
-        audio = audio.replace('<audio', f'<audio onended="this.parentNode.removeChild(this)"')
+        # audio = audio.replace('<audio', f'<audio onended="this.parentNode.removeChild(this)"')
         return f'<div style="display:none">{audio}</div>'
 
 
