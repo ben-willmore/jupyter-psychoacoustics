@@ -38,12 +38,8 @@ class AudioPlayer(Audio):
 
     def _repr_html_(self):
         audio = super()._repr_html_()
-        audio = audio.replace('<audio', f'<audio onended="this.parentNode.removeChild(this)"')
+        # audio = audio.replace('<audio', f'<audio onended="this.parentNode.removeChild(this)"')
         return f'<div style="display:none">{audio}</div>'
-
-
-# In[1]:
-
 
 class LocalizationExpt():
 
@@ -76,7 +72,7 @@ class LocalizationExpt():
         self.responses = []
 
         self.widgets = {}
-        self.widgets['audio'] = AudioPlayer(np.ones(20), rate=self.fs, autoplay=True)
+        self.widgets['audio'] = AudioPlayer(self.stim_gen(freq, indep), rate=self.fs, autoplay=True)
         self.widgets['leftButton'] = widgets.Button(description='Left')
         self.widgets['leftButton'].on_click(lambda x: self.responseButton_clicked('left', x))
         self.widgets['leftButton'].disabled = True
@@ -113,7 +109,9 @@ class LocalizationExpt():
         self.set_sound_button_enabled(False)
         (freq, indep) = self.all_trial_params[self.trial_idx, :]
         self.widgets['audio'].update_data(self.fs, self.stim_gen(freq, indep))
+        self.widgets['audio'].autoplay = True
         display(self.widgets['audio'])
+        self.widgets['audio'].autoplay = True
         self.set_status_text('Trial %d of %d: Click "Left" or "Right"' % (self.trial_idx+1, self.n_trials))
 
     def responseButton_clicked(self, side, b):
@@ -157,4 +155,3 @@ class LocalizationExpt():
 
         for f, ff in enumerate(freqs):
             plt.plot(indep, n_right[f, :]/n_total[f, :])
-
