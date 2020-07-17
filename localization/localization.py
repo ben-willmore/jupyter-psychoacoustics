@@ -38,7 +38,7 @@ class AudioPlayer(Audio):
 
     def _repr_html_(self):
         audio = super()._repr_html_()
-        # audio = audio.replace('<audio', f'<audio onended="this.parentNode.removeChild(this)"')
+        audio = audio.replace('<audio', f'<audio onended="this.parentNode.removeChild(this)"')
         return f'<div style="display:none">{audio}</div>'
 
 
@@ -97,7 +97,6 @@ class LocalizationExpt():
         display(self.widgets['soundButton'])
         display(self.widgets['responseButtons'])
         display(self.widgets['output'])
-        display(self.widgets['audio'])
 
     def set_response_buttons_enabled(self, state):
         self.widgets['leftButton'].disabled = not state
@@ -114,7 +113,6 @@ class LocalizationExpt():
         self.set_sound_button_enabled(False)
         (freq, indep) = self.all_trial_params[self.trial_idx, :]
         self.widgets['audio'].update_data(self.fs, self.stim_gen(freq, indep))
-        self.widgets['audio'].autoplay = True
         display(self.widgets['audio'])
         self.set_status_text('Trial %d of %d: Click "Left" or "Right"' % (self.trial_idx+1, self.n_trials))
 
