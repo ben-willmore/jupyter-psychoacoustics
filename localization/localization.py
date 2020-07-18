@@ -12,6 +12,13 @@ from IPython.core.display import HTML, display as cdisplay
 def rm_out_padding(): cdisplay(HTML("<style>div.output_subarea { padding:unset;}</style>"))
 rm_out_padding()
 
+# check if this is colab
+try:
+  import google.colab
+  IS_COLAB = True
+except:
+  IS_COLAB = False
+
 F_S = 44100
 
 def logistic(x, a, b):
@@ -238,7 +245,15 @@ class LocalizationExpt():
                     n_total[f, i] = n_total[f, i] + 1
                     if self.responses[trial_idx] == 'right':
                         n_right[f, i] = n_right[f, i] + 1
-        plt.figure(figsize=(9,6))
+
+        if IS_COLAB:
+            figsize = (12, 8)
+            plt.rc('font', size=14)
+        else:
+            figsize = (9, 6)
+
+        plt.figure(figsize=figsize)
+
         results_pct = []
         for f, ff in enumerate(freqs):
             print('Frequency %d Hz' % ff)
@@ -248,7 +263,7 @@ class LocalizationExpt():
             else:
                 title = 'ITD (us)'
             titles = title + ' : '
-            values =    '% right  : '
+            values = '% right  : '
 
             for i, ii in enumerate(indep):
                 titles = titles + '%7.1f  ' % ii
