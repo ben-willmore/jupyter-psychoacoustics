@@ -5,6 +5,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 import ipywidgets as widgets
 from IPython.display import display, Audio
+from statsmodels.discrete.discrete_model import Probit
+from statsmodels.tools.tools import add_constant
 
 # remove glitchy padding around audioplayer widget
 # https://github.com/jupyter-widgets/ipywidgets/issues/1845
@@ -158,6 +160,7 @@ class LocalizationExpt():
         self.trial_idx = 0
 
         self.responses = []
+        self.results = {}
 
         self.widgets = {}
         self.widgets['audio'] = AudioPlayer(self.stim_gen(freq, indep), rate=self.fs,
@@ -232,20 +235,49 @@ class LocalizationExpt():
 
     def analyse_results(self, use_test_data=False):
         freqs = np.unique(self.freqs)
-        indep = np.unique(np.array(self.indep))
+        indeps = np.unique(np.array(self.indep))
+
         if use_test_data:
             self.generate_data()
 
-        # collate data by parameter values
-        n_right = np.zeros((len(freqs), len(indep)))
-        n_total = np.zeros((len(freqs), len(indep)))
-        for f, ff in enumerate(freqs):
-            for i, ii in enumerate(indep):
-                trial_idxes = np.where((self.all_trial_params[:, 0]==ff) & (self.all_trial_params[:, 1]==ii))
-                for trial_idx in trial_idxes[0]:
-                    n_total[f, i] = n_total[f, i] + 1
-                    if self.responses[trial_idx] == 'right':
-                        n_right[f, i] = n_right[f, i] + 1
+        # generate ndarray of responses (0=left, 1=right)
+        responses = np.array([1 if r == 'right' else 0 for r in self.responses])
+
+        # collate results as n_r, n_t, pct_correct
+        self.results = {}
+        n_indep = indeps.shape[0]
+
+        for freq in freqs:
+            n_t = np.zeros((n_indep))
+            n_r = np.zeros((n_indep))
+            pct_correct = np.zeros((n_indep))
+            w = np.where(self.all_trial_params[:, 0] == freq)[0]
+            all_indep = self.all_trial_params[w, 1]
+            all_resp = responses[w]
+
+            for i_idx, indep in enumerate(indeps):
+                trial_idxes = np.where((self.all_trial_params[:, 0] == freq) &
+                                       (self.all_trial_params[:, 1] == indep))[0]
+
+                n_t[i_idx] = trial_idxes.shape[0]
+                n_r[i_idx] = np.sum(responses[trial_idxes])
+                pct_correct[i_idx] = n_r[i_idx]/n_t[i_idx]
+
+            # probit fit
+            probit = Probit(all_resp, add_constant(all_indep))
+            probres = probit.fit(disp=0)
+            xt = np.linspace(np.min(indeps), np.max(indeps), 50)
+            r_hat = probres.predict(add_constant(xt))
+
+            res = {'all_indep': all_indep,
+                   'all_resp': all_resp,
+                   'n_t': n_t,
+                   'n_r': n_r,
+                   'pct_correct': pct_correct,
+                   'indep_spc': xt,
+                   'r_hat': r_hat,
+                   'probres': probres}
+            self.results[freq] = res
 
         # display table and figure of results
         if IS_COLAB:
@@ -254,29 +286,33 @@ class LocalizationExpt():
         else:
             figsize = (9, 6)
 
+        # table and figure
         plt.figure(figsize=figsize)
 
-        for f, ff in enumerate(freqs):
-            print('Frequency %d Hz' % ff)
+        if type == 'ILD':
+            title = 'ILD (dB)'
+        else:
+            title = 'ITD (us)'
 
-            if self.type == 'ILD':
-                title = 'ILD (dB)'
-            else:
-                title = 'ITD (us)'
-            titles = title + ' : '
+        titles = title + ' : '
+        for indep in indeps:
+            titles = titles + '%7.1f  ' % indep
+
+        for freq, res in self.results.items():
+            print('Frequency %d Hz' % freq)
+
             values = '% right  : '
-
-            for i, ii in enumerate(indep):
-                titles = titles + '%7.1f  ' % ii
-                pct_correct = n_right[f, i]/n_total[f, i] * 100
-                values = values + '%7.1f  ' % pct_correct
+            for val in res['pct_correct']:
+                values = values + '%7.1f  ' % val
             print(titles)
             print(values)
 
-            plt.plot(indep, n_right[f, :]/n_total[f, :] * 100)
-            plt.legend(['%d Hz tone' % f for f in freqs])
-            plt.xlabel(title)
-            plt.ylabel('Percentage right responses')
+            plt.scatter(indeps, res['pct_correct'])
+            plt.plot(res['indep_spc'], res['r_hat'])
+
+        plt.legend(['%d Hz tone' % f for f in freqs])
+        plt.xlabel(title)
+        plt.ylabel('Percentage right responses')
 
 def print_setup_message():
     print('\n=== Setup complete ===\n')
