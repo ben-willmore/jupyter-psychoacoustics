@@ -14,6 +14,9 @@ rm_out_padding()
 
 F_S = 44100
 
+def logistic(x, a, b):
+    return  1/(1+np.exp((-x+a)/b))
+
 def level2amp(dB):
     '''
     Convert a dB difference to amplitude.
@@ -209,12 +212,22 @@ class LocalizationExpt():
             return ild_stimulus(self.fs, self.len_s, freq, ild_dB=indep)
         return itd_stimulus(self.fs, self.len_s, freq, itd_us=indep)
 
+    def generate_data(self):
+        rng = (np.max(self.indep) - np.min(self.indep))/8
+        self.responses = []
+        for idx in range(self.all_trial_params.shape[0]):
+            (freq, indep) = self.all_trial_params[idx]
+            prob = logistic(indep, 0, rng)
+            if np.random.random() < prob:
+                self.responses.append('right')
+            else:
+                self.responses.append('left')
+
     def analyse_results(self, use_test_data=False):
         freqs = np.unique(self.freqs)
         indep = np.unique(np.array(self.indep))
         if use_test_data:
-            self.responses = list(self.all_trial_params[:, 1])
-            self.responses = ['left' if r<=0 else 'right' for r in self.responses]
+            self.generate_data()
 
         n_right = np.zeros((len(freqs), len(indep)))
         n_total = np.zeros((len(freqs), len(indep)))
@@ -225,15 +238,16 @@ class LocalizationExpt():
                     n_total[f, i] = n_total[f, i] + 1
                     if self.responses[trial_idx] == 'right':
                         n_right[f, i] = n_right[f, i] + 1
-
+        plt.figure(figsize=(9,6))
         results_pct = []
         for f, ff in enumerate(freqs):
             print('Frequency %d Hz' % ff)
 
             if self.type == 'ILD':
-                titles = 'ILD (dB) : '
+                title = 'ILD (dB)'
             else:
-                titles = 'ITD (us) : '
+                title = 'ITD (us)'
+            titles = title + ' : '
             values =    '% right  : '
 
             for i, ii in enumerate(indep):
@@ -244,6 +258,9 @@ class LocalizationExpt():
             print(values)
 
             plt.plot(indep, n_right[f, :]/n_total[f, :])
+            plt.legend(['%d Hz tone' % f for f in freqs])
+            plt.xlabel(title)
+            plt.ylabel('Percentage right responses')
 
 def print_setup_message():
     print('\n=== Setup complete ===\n')
