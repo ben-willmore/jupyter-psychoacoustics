@@ -6,6 +6,8 @@ from matplotlib import pyplot as plt
 import ipywidgets as widgets
 from IPython.display import display, Audio
 
+F_S = 44100
+
 def level2amp(dB):
     '''
     Convert a dB difference to amplitude.
@@ -60,7 +62,7 @@ def apply_itd(fs, snd, itd_us=100):
     shift_samples = np.int(np.abs(itd_us*1000/fs))
     leading = np.concatenate((snd, np.zeros(shift_samples)))
     lagging = np.concatenate((np.zeros(shift_samples), snd))
-    if itd_us<0:
+    if itd_us < 0:
         return np.stack((leading, lagging))
     else:
         return np.stack((lagging, leading))
@@ -80,6 +82,10 @@ def itd_stimulus(fs, len_s, f0, itd_us):
     return apply_itd(fs, snd_mono, itd_us=itd_us)
 
 class AudioPlayer(Audio):
+
+    def __init__(self, snd, hide_on_click=False, *args, **kwargs):
+        super().__init__(snd, *args, **kwargs)
+        self.hide_on_click = hide_on_click
 
     def ndarray2wavbytes(self, fs, snd):
         nchannels = snd.shape[0]
@@ -101,13 +107,16 @@ class AudioPlayer(Audio):
 
     def _repr_html_(self):
         audio = super()._repr_html_()
-        return audio.replace('<audio', f'<audio onended="this.parentNode.removeChild(this)"')
+        if self.hide_on_click:
+            return audio.replace('<audio', f'<audio onended="this.parentNode.removeChild(this)"')
+        else:
+            return audio
         # return f'<div style="height:1px">{audio}</div>'
 
 class LocalizationExpt():
 
     def __init__(self, freqs=[500, 3000], n_reps=6, type='ILD'):
-        self.fs = 44100
+        self.fs = F_S
         self.len_s = 0.5
         self.type = type
         if self.type=='ILD':
@@ -135,7 +144,8 @@ class LocalizationExpt():
         self.responses = []
 
         self.widgets = {}
-        self.widgets['audio'] = AudioPlayer(self.stim_gen(freq, indep), rate=self.fs, autoplay=True)
+        self.widgets['audio'] = AudioPlayer(self.stim_gen(freq, indep), rate=self.fs,
+                                            autoplay=True, hide_on_click=True)
         self.widgets['leftButton'] = widgets.Button(description='Left')
         self.widgets['leftButton'].on_click(lambda x: self.responseButton_clicked('left', x))
         self.widgets['leftButton'].disabled = True
@@ -222,4 +232,10 @@ def print_setup_message():
     print('Now, move on to the next cell to set up your headphones\n')
 
 def headphone_check():
-    pass
+    left_stim = ild_stimulus(F_S, 2, 500, ild_dB=-100)
+    left_widget = AudioPlayer(left_stim, rate=F_S, autoplay=False)
+    right_stim = ild_stimulus(F_S, 2, 500, ild_dB=100)
+    right_widget = AudioPlayer(right_stim, rate=F_S, autoplay=False)
+
+    display(left_widget)
+    display(right_widget)
