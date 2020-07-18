@@ -10,6 +10,7 @@ import ipywidgets as widgets
 from IPython.display import display
 from psychoacoustics.sound import ild_stimulus, itd_stimulus
 from psychoacoustics.stats import logistic, probit_fit
+# need headphone_check so it is included in 'from psychoacoustics.localization import *' in notebook
 from psychoacoustics.jupyterpsych import is_colab, headphone_check, AudioPlayer, collate_responses
 
 F_S = 44100
