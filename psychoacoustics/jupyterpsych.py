@@ -34,6 +34,19 @@ def is_colab():
     except ModuleNotFoundError:
         return False
 
+def headphone_check():
+    '''
+    Show widgets which play left/right sounds
+    '''
+    left_stim = ild_stimulus(F_S, 2, 500, ild_dB=-100)
+    left_widget = AudioPlayer(left_stim, rate=F_S, autoplay=False)
+    right_stim = ild_stimulus(F_S, 2, 500, ild_dB=100)
+    right_widget = AudioPlayer(right_stim, rate=F_S, autoplay=False)
+    display(widgets.Label('This sound should play in the left headphone only:'))
+    display(left_widget)
+    display(widgets.Label('This sound should play in the right headphone only:'))
+    display(right_widget)
+
 def ndarray2wavbytes(fs, snd):
     '''
     Convert ndarray to wav format bytes
@@ -78,3 +91,25 @@ class AudioPlayer(Audio):
 
         return audio
         # return f'<div style="height:1px">{audio}</div>'
+
+def collate_responses(x_unique, x, resp):
+    '''
+    Collate responses where x is independent variable, resp is 1 or 0
+    and x_unique are unique values of x, into:
+    n_t: number of trials (for each value of x_unique)
+    n_r: number of 1 (e.g. 'right' responses
+    prop_r: n_r / n_t
+    '''
+    n_x = x_unique.shape[0]
+    n_t = np.zeros((n_x))
+    n_r = np.zeros((n_x))
+    prop_r = np.zeros((n_x))
+
+    for i_idx, indep in enumerate(x_unique):
+        trial_idxes = np.where((x == indep))[0]
+
+        n_t[i_idx] = trial_idxes.shape[0]
+        n_r[i_idx] = np.sum(resp[trial_idxes])
+        prop_r[i_idx] = n_r[i_idx]/n_t[i_idx]
+
+    return n_t, n_r, prop_r

@@ -8,12 +8,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 import ipywidgets as widgets
 from IPython.display import display
-from statsmodels.tools.tools import add_constant
-from statsmodels.genmod.generalized_linear_model import GLM
-from statsmodels.genmod import families
 from .sound import ild_stimulus, itd_stimulus
-from .stats import logistic
-from .jupyterpsych import is_colab, AudioPlayer
+from .stats import logistic, probit_fit
+from .jupyterpsych import is_colab, headphone_check, AudioPlayer, collate_responses
 
 F_S = 44100
 
@@ -153,9 +150,59 @@ class LocalizationExpt():
             else:
                 self.responses.append('left')
 
+    def x_label(self):
+        '''
+        Label for independent variable
+        '''
+        if self.type == 'ILD':
+            return 'ILD (dB)'
+        return 'ITD (us)'
+
+    def results_table(self):
+        '''
+        Print results table
+        '''
+        titles = self.x_label() + ' : '
+        for indep in self.indep:
+            titles = titles + '%7.1f  ' % indep
+
+        for (freq, res) in self.results.items():
+            print('Frequency %d Hz' % freq)
+
+            values = '% right  : '
+            for val in res['prop_r']:
+                values = values + '%7.1f  ' % (val * 100)
+            print(titles)
+            print(values)
+            print()
+
+    def plot_results(self):
+        '''
+        Plot results
+        '''
+        if is_colab():
+            figsize = (12, 8)
+            plt.rc('font', size=14)
+        else:
+            figsize = (9, 6)
+
+        plt.figure(figsize=figsize)
+
+        for (_, res) in self.results.items():
+            ax = plt.gca()
+            col = ax._get_lines.get_next_color()
+            plt.scatter(self.indep, res['prop_r'])
+            plt.plot(res['indep_spc'], res['r_hat'], color=col)
+            plt.fill_between(res['indep_spc'], res['ci_5'], res['ci_95'],
+                             color=col, alpha=0.1)
+
+        plt.legend(['%d Hz tone' % f for f in self.results])
+        plt.xlabel(self.x_label())
+        plt.ylabel('Percentage right responses')
+
     def analyse_results(self, use_test_data=False):
         '''
-        Make table and graph of results
+        Collate data, and show table and graph of results
         '''
         freqs = np.unique(self.freqs)
         indeps = np.unique(np.array(self.indep))
@@ -166,86 +213,25 @@ class LocalizationExpt():
         # generate ndarray of responses (0=left, 1=right)
         responses = np.array([1 if r == 'right' else 0 for r in self.responses])
 
-        # collate results as n_r, n_t, pct_correct
+        # collate results as n_r, n_t, prop_r
         self.results = {}
-        n_indep = indeps.shape[0]
 
         for freq in freqs:
-            n_t = np.zeros((n_indep))
-            n_r = np.zeros((n_indep))
-            pct_correct = np.zeros((n_indep))
+            res = {}
             w = np.where(self.all_trial_params[:, 0] == freq)[0]
-            all_indep = self.all_trial_params[w, 1]
-            all_resp = responses[w]
+            res['all_indep'] = self.all_trial_params[w, 1]
+            res['all_resp'] = responses[w]
 
-            for i_idx, indep in enumerate(indeps):
-                trial_idxes = np.where((self.all_trial_params[:, 0] == freq) &
-                                       (self.all_trial_params[:, 1] == indep))[0]
+            res['n_t'], res['n_r'], res['prop_r'] = \
+                collate_responses(indeps, res['all_indep'], res['all_resp'])
 
-                n_t[i_idx] = trial_idxes.shape[0]
-                n_r[i_idx] = np.sum(responses[trial_idxes])
-                pct_correct[i_idx] = n_r[i_idx]/n_t[i_idx]
+            res['fit_params'], res['r_hat'], (res['indep_spc'], res['ci_5'], res['ci_95']) = \
+                probit_fit(res['all_indep'], res['all_resp'])
 
-            # binomial GLM with probit link
-            model = GLM(all_resp, add_constant(all_indep),
-                        family=families.Binomial(),
-                        link=families.links.probit())
-            mod_result = model.fit(disp=0)
-            xt = np.linspace(np.min(all_indep), np.max(all_indep), 100)
-            r_hat = mod_result.predict(add_constant(xt))
-            pred_summ = mod_result.get_prediction(add_constant(xt)).summary_frame(alpha=0.05)
-            ci_5, ci_95 = pred_summ['mean_ci_lower'], pred_summ['mean_ci_upper']
-
-            res = {'all_indep': all_indep,
-                   'all_resp': all_resp,
-                   'n_t': n_t,
-                   'n_r': n_r,
-                   'pct_correct': pct_correct,
-                   'indep_spc': xt,
-                   'r_hat': r_hat,
-                   'ci_5': ci_5,
-                   'ci_95': ci_95,
-                   'mod_result': mod_result}
             self.results[freq] = res
 
-        # display table and figure of results
-        if is_colab():
-            figsize = (12, 8)
-            plt.rc('font', size=14)
-        else:
-            figsize = (9, 6)
-
-        colors = ['b', 'r']
-
-        # table and figure
-        plt.figure(figsize=figsize)
-
-        if type == 'ILD':
-            title = 'ILD (dB)'
-        else:
-            title = 'ITD (us)'
-
-        titles = title + ' : '
-        for indep in indeps:
-            titles = titles + '%7.1f  ' % indep
-
-        for f_idx, (freq, res) in enumerate(self.results.items()):
-            print('Frequency %d Hz' % freq)
-
-            values = '% right  : '
-            for val in res['pct_correct']:
-                values = values + '%7.1f  ' % val
-            print(titles)
-            print(values)
-
-            plt.scatter(indeps, res['pct_correct'], c=colors[f_idx])
-            plt.plot(res['indep_spc'], res['r_hat'], colors[f_idx])
-            plt.fill_between(res['indep_spc'], res['ci_5'], res['ci_95'],
-                             color=colors[f_idx], alpha=0.1)
-
-        plt.legend(['%d Hz tone' % f for f in freqs])
-        plt.xlabel(title)
-        plt.ylabel('Percentage right responses')
+        self.results_table()
+        self.plot_results()
 
 def print_setup_message():
     '''
@@ -253,16 +239,3 @@ def print_setup_message():
     '''
     print('\n=== Setup complete ===\n')
     print('Now, move on to the next cell to set up your headphones\n')
-
-def headphone_check():
-    '''
-    Show widgets which play left/right sounds
-    '''
-    left_stim = ild_stimulus(F_S, 2, 500, ild_dB=-100)
-    left_widget = AudioPlayer(left_stim, rate=F_S, autoplay=False)
-    right_stim = ild_stimulus(F_S, 2, 500, ild_dB=100)
-    right_widget = AudioPlayer(right_stim, rate=F_S, autoplay=False)
-    display(widgets.Label('This sound should play in the left headphone only:'))
-    display(left_widget)
-    display(widgets.Label('This sound should play in the right headphone only:'))
-    display(right_widget)
