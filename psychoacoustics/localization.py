@@ -8,9 +8,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 import ipywidgets as widgets
 from IPython.display import display
-from .sound import ild_stimulus, itd_stimulus
-from .stats import logistic, probit_fit
-from .jupyterpsych import is_colab, headphone_check, AudioPlayer, collate_responses
+from psychoacoustics.sound import ild_stimulus, itd_stimulus
+from psychoacoustics.stats import logistic, probit_fit
+from psychoacoustics.jupyterpsych import is_colab, headphone_check, AudioPlayer, collate_responses
 
 F_S = 44100
 
