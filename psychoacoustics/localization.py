@@ -1,14 +1,19 @@
-from io import BytesIO
-import struct, math
-import wave
+'''
+Sound localization practical using jupyter / google colab
+'''
+
+# pylint: disable=C0103, R0912, R0914
+
 import numpy as np
 from matplotlib import pyplot as plt
 import ipywidgets as widgets
-from IPython.display import display, Audio
-from statsmodels.discrete.discrete_model import Probit, Logit
+from IPython.display import display
 from statsmodels.tools.tools import add_constant
 from statsmodels.genmod.generalized_linear_model import GLM
 from statsmodels.genmod import families
+from .sound import ild_stimulus, itd_stimulus
+from .stats import logistic
+from .jupyterpsych import is_colab, AudioPlayer
 
 # remove glitchy padding around audioplayer widget
 # https://github.com/jupyter-widgets/ipywidgets/issues/1845
@@ -20,136 +25,27 @@ import warnings
 from statsmodels.tools.sm_exceptions import ConvergenceWarning
 warnings.simplefilter('ignore', ConvergenceWarning)
 
-# check if this is colab
-try:
-  import google.colab
-  IS_COLAB = True
-except:
-  IS_COLAB = False
-
 F_S = 44100
 
-def logistic(x, a, b):
-    return  1/(1+np.exp((-x+a)/b))
-
-def level2amp(dB):
-    '''
-    Convert a dB difference to amplitude.
-    E.g. a difference of +10dB is a multiplier of 3.16
-    '''
-    return 10**(dB/20)
-
-def dBSPL2rms(dBSPL):
-    '''
-    Convert dBSPL to RMS in Pascals
-    E.g. 94dB = 1 Pa RMS
-    '''
-    return level2amp(dBSPL-94)
-
-def puretone(fs, n_samples, freq, level_dB=94, phase=0):
-    '''
-    Generate a pure tone
-    '''
-    t = np.arange(n_samples) * 1/fs
-    return np.sin(2*np.pi*freq*t + phase) * np.sqrt(2) * dBSPL2rms(level_dB)
-
-def cosramp_on(n_samples, ramp_samples=None):
-    '''
-    Ramp on - total length n_samples, ramp length ramp_samples
-    '''
-    if ramp_samples is None:
-        ramp_samples = n_samples
-    t = np.minimum(np.arange(n_samples), ramp_samples)
-    return np.sin(np.pi/2/ramp_samples*t)
-
-def cosramp_off(n_samples, ramp_samples=None):
-    '''
-    Ramp off - total length n_samples, ramp length ramp_samples
-    '''
-    if ramp_samples is None:
-        ramp_samples = n_samples
-    return cosramp_on(n_samples, ramp_samples)[::-1]
-
-def cosramp_onoff(n_samples, ramp_samples):
-    '''
-    Ramp on and off - total length n_samples, ramp lengths ramp_samples
-    '''
-    r = cosramp_on(n_samples, ramp_samples)
-    return r * r[::-1]
-
-def apply_ild(fs, snd, ild_dB=10):
-    left = snd
-    right = snd * level2amp(ild_dB)
-    return np.stack((left, right))
-
-def apply_itd(fs, snd, itd_us=100):
-    shift_samples = np.int(np.abs(itd_us*1000/fs))
-    leading = np.concatenate((snd, np.zeros(shift_samples)))
-    lagging = np.concatenate((np.zeros(shift_samples), snd))
-    if itd_us < 0:
-        return np.stack((leading, lagging))
-    else:
-        return np.stack((lagging, leading))
-
-def ild_stimulus(fs, len_s, f0, ild_dB):
-    n_samples = np.int(len_s*fs)
-    snd_mono = puretone(fs, n_samples, f0)
-    ramplen_ms = 5
-    snd = cosramp_onoff(n_samples, ramp_samples=np.round(ramplen_ms/1000*fs))
-    return apply_ild(fs, snd_mono, ild_dB=ild_dB)
-
-def itd_stimulus(fs, len_s, f0, itd_us):
-    n_samples = np.int(len_s*fs)
-    snd_mono = puretone(fs, n_samples, f0)
-    ramplen_ms = 5
-    snd = cosramp_onoff(n_samples, ramp_samples=np.round(ramplen_ms/1000*fs))
-    return apply_itd(fs, snd_mono, itd_us=itd_us)
-
-class AudioPlayer(Audio):
-
-    def __init__(self, snd, hide_on_click=False, *args, **kwargs):
-        super().__init__(snd, *args, **kwargs)
-        self.hide_on_click = hide_on_click
-
-    def ndarray2wavbytes(self, fs, snd):
-        nchannels = snd.shape[0]
-        mx = np.max(np.abs(snd))
-        snd = snd.transpose().ravel()
-        if mx > 0:
-            snd = snd/mx*32767.0
-        snd_b = snd.astype(np.int16).tostring()
-        output = BytesIO()
-        with wave.open(output, 'w') as s:
-            s.setnchannels(nchannels)
-            s.setsampwidth(2)
-            s.setframerate(fs)
-            s.writeframesraw(snd_b)
-        return output.getvalue()
-
-    def update_data(self, fs, ndarray):
-        self.data = self.ndarray2wavbytes(fs, ndarray)
-
-    def _repr_html_(self):
-        audio = super()._repr_html_()
-        if self.hide_on_click:
-            return audio.replace('<audio', f'<audio onended="this.parentNode.removeChild(this)"')
-        else:
-            return audio
-        # return f'<div style="height:1px">{audio}</div>'
-
 class LocalizationExpt():
+    '''
+    Sound localisation expt
+    '''
 
-    def __init__(self, freqs=[500, 2000], n_reps=8, type='ILD'):
+    def __init__(self, freqs=None, n_reps=8, type='ILD'):
         self.fs = F_S
         self.len_s = 0.5
         self.type = type.upper()
-        if self.type=='ILD':
+        if self.type == 'ILD':
             self.indep = np.linspace(-5, 5, 8)
         else:
             self.type = 'ITD'
             self.indep = np.linspace(-300, 300, 8)
 
+        if freqs is None:
+            freqs = [500, 2000]
         self.freqs = np.array(freqs)
+
         self.n_reps = n_reps
         self.buttons = {}
 
@@ -169,6 +65,7 @@ class LocalizationExpt():
         self.results = {}
 
         self.widgets = {}
+        freq, indep = self.all_trial_params[0, :]
         self.widgets['audio'] = AudioPlayer(self.stim_gen(freq, indep), rate=self.fs,
                                             autoplay=True, hide_on_click=True)
         self.widgets['leftButton'] = widgets.Button(description='Left')
@@ -186,53 +83,80 @@ class LocalizationExpt():
                                                  (self.trial_idx+1, self.n_trials))
         self.widgets['output'] = widgets.Output()
 
-        self.widgets['responseButtons'] = widgets.HBox((self.widgets['leftButton'], self.widgets['rightButton']))
+        self.widgets['responseButtons'] = widgets.HBox(
+            (self.widgets['leftButton'], self.widgets['rightButton']))
         display(self.widgets['statusBox'])
         display(self.widgets['soundButton'])
         display(self.widgets['responseButtons'])
         display(self.widgets['output'])
 
     def set_response_buttons_enabled(self, state):
+        '''
+        Enable / disable Left/Right buttons
+        '''
         self.widgets['leftButton'].disabled = not state
         self.widgets['rightButton'].disabled = not state
 
     def set_sound_button_enabled(self, state):
+        '''
+        Enable / disable "Play Sound" button
+        '''
         self.widgets['soundButton'].disabled = not state
 
     def set_status_text(self, string):
+        '''
+        Update status widget
+        '''
         self.widgets['statusBox'].value = string
 
-    def on_soundButton_clicked(self, b):
+    def on_soundButton_clicked(self, _):
+        '''
+        When soundButton is clicked, update audio,
+        enable left/right buttons, and disable sound button
+        '''
         self.set_response_buttons_enabled(True)
         self.set_sound_button_enabled(False)
-        (freq, indep) = self.all_trial_params[self.trial_idx, :]
+        freq, indep = self.all_trial_params[self.trial_idx, :]
         self.widgets['audio'].update_data(self.fs, self.stim_gen(freq, indep))
         display(self.widgets['audio'])
-        self.set_status_text('Trial %d of %d: Click "Left" or "Right"' % (self.trial_idx+1, self.n_trials))
+        self.set_status_text('Trial %d of %d: Click "Left" or "Right"' %
+            (self.trial_idx+1, self.n_trials))
 
-    def responseButton_clicked(self, side, b):
+    def responseButton_clicked(self, side, _):
+        '''
+        When left/right are clicked, enable the sound button
+        and update status text. Finish expt if all trials have been run
+        '''
         self.set_response_buttons_enabled(False)
         self.responses.append(side)
         with self.widgets['output']:
             if self.trial_idx == self.n_trials-1:
                 with self.widgets['output']:
-                    self.set_status_text('Trial %d of %d: Experiment complete' % (self.trial_idx+1, self.n_trials))
+                    self.set_status_text('Trial %d of %d: Experiment complete' %
+                        (self.trial_idx+1, self.n_trials))
                     self.set_response_buttons_enabled(False)
             else:
                 self.trial_idx = self.trial_idx + 1
-                self.set_status_text('Trial %d of %d: Click "Play sound"' % (self.trial_idx+1, self.n_trials))
+                self.set_status_text('Trial %d of %d: Click "Play sound"' %
+                    (self.trial_idx+1, self.n_trials))
                 self.set_sound_button_enabled(True)
 
     def stim_gen(self, freq, indep):
+        '''
+        Generate ILD/ITD stimulus
+        '''
         if self.type == 'ILD':
             return ild_stimulus(self.fs, self.len_s, freq, ild_dB=indep)
         return itd_stimulus(self.fs, self.len_s, freq, itd_us=indep)
 
     def generate_data(self):
+        '''
+        Generate fake response data for testing
+        '''
         rng = (np.max(self.indep) - np.min(self.indep))/8
         self.responses = []
         for idx in range(self.all_trial_params.shape[0]):
-            (freq, indep) = self.all_trial_params[idx]
+            freq, indep = self.all_trial_params[idx]
             prob = logistic(indep, 0, rng)
             if np.random.random() < prob:
                 self.responses.append('right')
@@ -240,6 +164,9 @@ class LocalizationExpt():
                 self.responses.append('left')
 
     def analyse_results(self, use_test_data=False):
+        '''
+        Make table and graph of results
+        '''
         freqs = np.unique(self.freqs)
         indeps = np.unique(np.array(self.indep))
 
@@ -292,13 +219,13 @@ class LocalizationExpt():
             self.results[freq] = res
 
         # display table and figure of results
-        if IS_COLAB:
+        if is_colab():
             figsize = (12, 8)
             plt.rc('font', size=14)
         else:
             figsize = (9, 6)
 
-        colors =['b', 'r']
+        colors = ['b', 'r']
 
         # table and figure
         plt.figure(figsize=figsize)
@@ -331,10 +258,16 @@ class LocalizationExpt():
         plt.ylabel('Percentage right responses')
 
 def print_setup_message():
+    '''
+    Print setup message
+    '''
     print('\n=== Setup complete ===\n')
     print('Now, move on to the next cell to set up your headphones\n')
 
 def headphone_check():
+    '''
+    Show widgets which play left/right sounds
+    '''
     left_stim = ild_stimulus(F_S, 2, 500, ild_dB=-100)
     left_widget = AudioPlayer(left_stim, rate=F_S, autoplay=False)
     right_stim = ild_stimulus(F_S, 2, 500, ild_dB=100)
