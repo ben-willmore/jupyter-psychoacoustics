@@ -5,8 +5,10 @@ import numpy as np
 from matplotlib import pyplot as plt
 import ipywidgets as widgets
 from IPython.display import display, Audio
-from statsmodels.discrete.discrete_model import Probit
+from statsmodels.discrete.discrete_model import Probit, Logit
 from statsmodels.tools.tools import add_constant
+from statsmodels.genmod.generalized_linear_model import GLM
+from statsmodels.genmod import families
 
 # remove glitchy padding around audioplayer widget
 # https://github.com/jupyter-widgets/ipywidgets/issues/1845
@@ -267,30 +269,15 @@ class LocalizationExpt():
                 n_r[i_idx] = np.sum(responses[trial_idxes])
                 pct_correct[i_idx] = n_r[i_idx]/n_t[i_idx]
 
-            # probit fit
-            probit = Probit(all_resp, add_constant(all_indep))
-            probres = probit.fit(disp=0)
-            xt = np.linspace(np.min(indeps), np.max(indeps), 100)
-            r_hat = probres.predict(add_constant(xt))
-
-            # bootstraps
-            all_rhat = []
-            n_boot = 200
-            n = all_resp.shape[0]
-            for b in range(n_boot):
-                done = False
-                while not done:
-                    try:
-                        idx = np.random.randint(n, size=(n))
-                        probit = Probit(all_resp[idx], add_constant(all_indep[idx]))
-                        probres = probit.fit(disp=0)
-                        done = True
-                    except:
-                        pass
-                xt = np.linspace(np.min(indeps), np.max(indeps), 100)
-                all_rhat.append(probres.predict(add_constant(xt)))
-            r_boot = np.stack(all_rhat, axis=1)
-            r_prc = np.percentile(r_boot, (5, 95), axis=1)
+            # binomial GLM with probit link
+            model = GLM(all_resp, add_constant(all_indep),
+                        family=families.Binomial(),
+                        link=families.links.probit())
+            mod_result = model.fit(disp=0)
+            xt = np.linspace(np.min(all_indep), np.max(all_indep), 100)
+            r_hat = mod_result.predict(add_constant(xt))
+            pred_summ = mod_result.get_prediction(add_constant(xt)).summary_frame(alpha=0.05)
+            ci_5, ci_95 = pred_summ['mean_ci_lower'], pred_summ['mean_ci_upper']
 
             res = {'all_indep': all_indep,
                    'all_resp': all_resp,
@@ -299,8 +286,9 @@ class LocalizationExpt():
                    'pct_correct': pct_correct,
                    'indep_spc': xt,
                    'r_hat': r_hat,
-                   'r_prc': r_prc,
-                   'probres': probres}
+                   'ci_5': ci_5,
+                   'ci_95': ci_95,
+                   'mod_result': mod_result}
             self.results[freq] = res
 
         # display table and figure of results
@@ -335,7 +323,7 @@ class LocalizationExpt():
 
             plt.scatter(indeps, res['pct_correct'], c=colors[f_idx])
             plt.plot(res['indep_spc'], res['r_hat'], colors[f_idx])
-            plt.fill_between(res['indep_spc'], res['r_prc'][0,:],res['r_prc'][1,:],
+            plt.fill_between(res['indep_spc'], res['ci_5'], res['ci_95'],
                              color=colors[f_idx], alpha=0.1)
 
         plt.legend(['%d Hz tone' % f for f in freqs])
