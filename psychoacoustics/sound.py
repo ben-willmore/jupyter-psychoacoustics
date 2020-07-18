@@ -134,14 +134,3 @@ def show_spectrogram(*args, **kwargs):
     ax.imshow(s, origin='lower', extent=[np.min(t), np.max(t), np.min(f), np.max(f)])
     ax.set_aspect((np.max(t)-np.min(t))/(np.max(f)-np.min(f))/2)
 
-def ndarray2wavbytes(fs, snd):
-    nchannels = snd.shape[0]
-    mx = np.max(np.abs(snd))
-    snd_b = (snd.transpose().ravel()/mx*32767.0).astype(np.int16).tostring()
-    output = BytesIO()
-    with wave.open(output, 'w') as s:
-        s.setnchannels(nchannels)
-        s.setsampwidth(2)
-        s.setframerate(fs)
-        s.writeframesraw(snd_b)
-    return output.getvalue()

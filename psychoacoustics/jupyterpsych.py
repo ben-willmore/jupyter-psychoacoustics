@@ -8,9 +8,13 @@ import warnings
 from io import BytesIO
 import wave
 import numpy as np
-from IPython.display import Audio
+from IPython.display import Audio, display
 from IPython.core.display import HTML, display as cdisplay
+import ipywidgets as widgets
 from statsmodels.tools.sm_exceptions import ConvergenceWarning
+from .sound import ild_stimulus
+
+F_S = 44100
 
 def rm_out_padding():
     '''
