@@ -236,6 +236,7 @@ class LocalizationExpt():
         if use_test_data:
             self.generate_data()
 
+        # collate data by parameter values
         n_right = np.zeros((len(freqs), len(indep)))
         n_total = np.zeros((len(freqs), len(indep)))
         for f, ff in enumerate(freqs):
@@ -246,6 +247,7 @@ class LocalizationExpt():
                     if self.responses[trial_idx] == 'right':
                         n_right[f, i] = n_right[f, i] + 1
 
+        # display table and figure of results
         if IS_COLAB:
             figsize = (12, 8)
             plt.rc('font', size=14)
@@ -254,7 +256,6 @@ class LocalizationExpt():
 
         plt.figure(figsize=figsize)
 
-        results_pct = []
         for f, ff in enumerate(freqs):
             print('Frequency %d Hz' % ff)
 
@@ -272,7 +273,7 @@ class LocalizationExpt():
             print(titles)
             print(values)
 
-            plt.plot(indep, n_right[f, :]/n_total[f, :])
+            plt.plot(indep, n_right[f, :]/n_total[f, :] * 100)
             plt.legend(['%d Hz tone' % f for f in freqs])
             plt.xlabel(title)
             plt.ylabel('Percentage right responses')
