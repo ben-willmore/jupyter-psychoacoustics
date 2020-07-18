@@ -216,3 +216,10 @@ class LocalizationExpt():
 
         for f, ff in enumerate(freqs):
             plt.plot(indep, n_right[f, :]/n_total[f, :])
+
+def print_setup_message():
+    print('\n=== Setup complete ===\n')
+    print('Now, move on to the next cell to set up your headphones\n')
+
+def headphone_check():
+    pass
