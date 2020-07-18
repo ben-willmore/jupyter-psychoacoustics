@@ -15,16 +15,6 @@ from .sound import ild_stimulus, itd_stimulus
 from .stats import logistic
 from .jupyterpsych import is_colab, AudioPlayer
 
-# remove glitchy padding around audioplayer widget
-# https://github.com/jupyter-widgets/ipywidgets/issues/1845
-from IPython.core.display import HTML, display as cdisplay
-def rm_out_padding(): cdisplay(HTML("<style>div.output_subarea { padding:unset;}</style>"))
-rm_out_padding()
-
-import warnings
-from statsmodels.tools.sm_exceptions import ConvergenceWarning
-warnings.simplefilter('ignore', ConvergenceWarning)
-
 F_S = 44100
 
 class LocalizationExpt():
@@ -120,7 +110,7 @@ class LocalizationExpt():
         self.widgets['audio'].update_data(self.fs, self.stim_gen(freq, indep))
         display(self.widgets['audio'])
         self.set_status_text('Trial %d of %d: Click "Left" or "Right"' %
-            (self.trial_idx+1, self.n_trials))
+                             (self.trial_idx+1, self.n_trials))
 
     def responseButton_clicked(self, side, _):
         '''
@@ -133,12 +123,12 @@ class LocalizationExpt():
             if self.trial_idx == self.n_trials-1:
                 with self.widgets['output']:
                     self.set_status_text('Trial %d of %d: Experiment complete' %
-                        (self.trial_idx+1, self.n_trials))
-                    self.set_response_buttons_enabled(False)
+                                         (self.trial_idx+1, self.n_trials))
+                self.set_response_buttons_enabled(False)
             else:
                 self.trial_idx = self.trial_idx + 1
                 self.set_status_text('Trial %d of %d: Click "Play sound"' %
-                    (self.trial_idx+1, self.n_trials))
+                                     (self.trial_idx+1, self.n_trials))
                 self.set_sound_button_enabled(True)
 
     def stim_gen(self, freq, indep):
@@ -156,7 +146,7 @@ class LocalizationExpt():
         rng = (np.max(self.indep) - np.min(self.indep))/8
         self.responses = []
         for idx in range(self.all_trial_params.shape[0]):
-            freq, indep = self.all_trial_params[idx]
+            _, indep = self.all_trial_params[idx]
             prob = logistic(indep, 0, rng)
             if np.random.random() < prob:
                 self.responses.append('right')
