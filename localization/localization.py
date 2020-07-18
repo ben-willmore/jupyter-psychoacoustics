@@ -6,6 +6,12 @@ from matplotlib import pyplot as plt
 import ipywidgets as widgets
 from IPython.display import display, Audio
 
+# remove glitchy padding around audioplayer widget
+# https://github.com/jupyter-widgets/ipywidgets/issues/1845
+from IPython.core.display import HTML, display as cdisplay
+def rm_out_padding(): cdisplay(HTML("<style>div.output_subarea { padding:unset;}</style>"))
+rm_out_padding()
+
 F_S = 44100
 
 def level2amp(dB):
@@ -118,7 +124,7 @@ class LocalizationExpt():
     def __init__(self, freqs=[500, 3000], n_reps=6, type='ILD'):
         self.fs = F_S
         self.len_s = 0.5
-        self.type = type
+        self.type = type.upper()
         if self.type=='ILD':
             self.indep = np.linspace(-5, 5, 8)
         else:
@@ -203,12 +209,10 @@ class LocalizationExpt():
             return ild_stimulus(self.fs, self.len_s, freq, ild_dB=indep)
         return itd_stimulus(self.fs, self.len_s, freq, itd_us=indep)
 
-    def analyse_results(self):
+    def analyse_results(self, use_test_data=False):
         freqs = np.unique(self.freqs)
         indep = np.unique(np.array(self.indep))
-        if self.responses == []:
-            with self.widgets['output']:
-                print('Faking data')
+        if use_test_data:
             self.responses = list(self.all_trial_params[:, 1])
             self.responses = ['left' if r<=0 else 'right' for r in self.responses]
 
@@ -221,10 +225,24 @@ class LocalizationExpt():
                     n_total[f, i] = n_total[f, i] + 1
                     if self.responses[trial_idx] == 'right':
                         n_right[f, i] = n_right[f, i] + 1
-        print(n_right)
-        print(n_total)
 
+        results_pct = []
         for f, ff in enumerate(freqs):
+            print('Frequency %d Hz' % ff)
+
+            if self.type == 'ILD':
+                titles = 'ILD (dB) : '
+            else:
+                titles = 'ITD (us) : '
+            values =    '% right  : '
+
+            for i, ii in enumerate(indep):
+                titles = titles + '%7.1f  ' % ii
+                pct_correct = n_right[f, i]/n_total[f, i] * 100
+                values = values + '%7.1f  ' % pct_correct
+            print(titles)
+            print(values)
+
             plt.plot(indep, n_right[f, :]/n_total[f, :])
 
 def print_setup_message():
@@ -236,6 +254,7 @@ def headphone_check():
     left_widget = AudioPlayer(left_stim, rate=F_S, autoplay=False)
     right_stim = ild_stimulus(F_S, 2, 500, ild_dB=100)
     right_widget = AudioPlayer(right_stim, rate=F_S, autoplay=False)
-
+    display(widgets.Label('This sound should play in the left headphone only:'))
     display(left_widget)
+    display(widgets.Label('This sound should play in the right headphone only:'))
     display(right_widget)
