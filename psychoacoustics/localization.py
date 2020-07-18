@@ -181,8 +181,8 @@ class LocalizationExpt():
         Plot results
         '''
         if is_colab():
-            figsize = (12, 8)
-            plt.rc('font', size=14)
+            figsize = (14, 8)
+            plt.rc('font', size=15)
         else:
             figsize = (9, 6)
 
