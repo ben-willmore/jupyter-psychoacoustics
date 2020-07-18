@@ -14,6 +14,10 @@ from IPython.core.display import HTML, display as cdisplay
 def rm_out_padding(): cdisplay(HTML("<style>div.output_subarea { padding:unset;}</style>"))
 rm_out_padding()
 
+import warnings
+from statsmodels.tools.sm_exceptions import ConvergenceWarning
+warnings.simplefilter('ignore', ConvergenceWarning)
+
 # check if this is colab
 try:
   import google.colab
@@ -266,8 +270,27 @@ class LocalizationExpt():
             # probit fit
             probit = Probit(all_resp, add_constant(all_indep))
             probres = probit.fit(disp=0)
-            xt = np.linspace(np.min(indeps), np.max(indeps), 50)
+            xt = np.linspace(np.min(indeps), np.max(indeps), 100)
             r_hat = probres.predict(add_constant(xt))
+
+            # bootstraps
+            all_rhat = []
+            n_boot = 200
+            n = all_resp.shape[0]
+            for b in range(n_boot):
+                done = False
+                while not done:
+                    try:
+                        idx = np.random.randint(n, size=(n))
+                        probit = Probit(all_resp[idx], add_constant(all_indep[idx]))
+                        probres = probit.fit(disp=0)
+                        done = True
+                    except:
+                        pass
+                xt = np.linspace(np.min(indeps), np.max(indeps), 100)
+                all_rhat.append(probres.predict(add_constant(xt)))
+            r_boot = np.stack(all_rhat, axis=1)
+            r_prc = np.percentile(r_boot, (5, 95), axis=1)
 
             res = {'all_indep': all_indep,
                    'all_resp': all_resp,
@@ -276,6 +299,7 @@ class LocalizationExpt():
                    'pct_correct': pct_correct,
                    'indep_spc': xt,
                    'r_hat': r_hat,
+                   'r_prc': r_prc,
                    'probres': probres}
             self.results[freq] = res
 
@@ -285,6 +309,8 @@ class LocalizationExpt():
             plt.rc('font', size=14)
         else:
             figsize = (9, 6)
+
+        colors =['b', 'r']
 
         # table and figure
         plt.figure(figsize=figsize)
@@ -298,7 +324,7 @@ class LocalizationExpt():
         for indep in indeps:
             titles = titles + '%7.1f  ' % indep
 
-        for freq, res in self.results.items():
+        for f_idx, (freq, res) in enumerate(self.results.items()):
             print('Frequency %d Hz' % freq)
 
             values = '% right  : '
@@ -307,8 +333,10 @@ class LocalizationExpt():
             print(titles)
             print(values)
 
-            plt.scatter(indeps, res['pct_correct'])
-            plt.plot(res['indep_spc'], res['r_hat'])
+            plt.scatter(indeps, res['pct_correct'], c=colors[f_idx])
+            plt.plot(res['indep_spc'], res['r_hat'], colors[f_idx])
+            plt.fill_between(res['indep_spc'], res['r_prc'][0,:],res['r_prc'][1,:],
+                             color=colors[f_idx], alpha=0.1)
 
         plt.legend(['%d Hz tone' % f for f in freqs])
         plt.xlabel(title)
