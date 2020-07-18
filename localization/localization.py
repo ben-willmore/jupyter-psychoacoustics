@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
 from io import BytesIO
 import struct, math
 import wave
@@ -8,13 +5,79 @@ import numpy as np
 from matplotlib import pyplot as plt
 import ipywidgets as widgets
 from IPython.display import display, Audio
-from .sound import *
 
-# remove glitchy padding around audioplayer widget
-# https://github.com/jupyter-widgets/ipywidgets/issues/1845
-from IPython.core.display import HTML, display as cdisplay
-def rm_out_padding(): cdisplay(HTML("<style>div.output_subarea { padding:unset;}</style>"))
-rm_out_padding()
+def level2amp(dB):
+    '''
+    Convert a dB difference to amplitude.
+    E.g. a difference of +10dB is a multiplier of 3.16
+    '''
+    return 10**(dB/20)
+
+def dBSPL2rms(dBSPL):
+    '''
+    Convert dBSPL to RMS in Pascals
+    E.g. 94dB = 1 Pa RMS
+    '''
+    return level2amp(dBSPL-94)
+
+def puretone(fs, n_samples, freq, level_dB=94, phase=0):
+    '''
+    Generate a pure tone
+    '''
+    t = np.arange(n_samples) * 1/fs
+    return np.sin(2*np.pi*freq*t + phase) * np.sqrt(2) * dBSPL2rms(level_dB)
+
+def cosramp_on(n_samples, ramp_samples=None):
+    '''
+    Ramp on - total length n_samples, ramp length ramp_samples
+    '''
+    if ramp_samples is None:
+        ramp_samples = n_samples
+    t = np.minimum(np.arange(n_samples), ramp_samples)
+    return np.sin(np.pi/2/ramp_samples*t)
+
+def cosramp_off(n_samples, ramp_samples=None):
+    '''
+    Ramp off - total length n_samples, ramp length ramp_samples
+    '''
+    if ramp_samples is None:
+        ramp_samples = n_samples
+    return cosramp_on(n_samples, ramp_samples)[::-1]
+
+def cosramp_onoff(n_samples, ramp_samples):
+    '''
+    Ramp on and off - total length n_samples, ramp lengths ramp_samples
+    '''
+    r = cosramp_on(n_samples, ramp_samples)
+    return r * r[::-1]
+
+def apply_ild(fs, snd, ild_dB=10):
+    left = snd
+    right = snd * level2amp(ild_dB)
+    return np.stack((left, right))
+
+def apply_itd(fs, snd, itd_us=100):
+    shift_samples = np.int(np.abs(itd_us*1000/fs))
+    leading = np.concatenate((snd, np.zeros(shift_samples)))
+    lagging = np.concatenate((np.zeros(shift_samples), snd))
+    if itd_us<0:
+        return np.stack((leading, lagging))
+    else:
+        return np.stack((lagging, leading))
+
+def ild_stimulus(fs, len_s, f0, ild_dB):
+    n_samples = np.int(len_s*fs)
+    snd_mono = puretone(fs, n_samples, f0)
+    ramplen_ms = 5
+    snd = cosramp_onoff(n_samples, ramp_samples=np.round(ramplen_ms/1000*fs))
+    return apply_ild(fs, snd_mono, ild_dB=ild_dB)
+
+def itd_stimulus(fs, len_s, f0, itd_us):
+    n_samples = np.int(len_s*fs)
+    snd_mono = puretone(fs, n_samples, f0)
+    ramplen_ms = 5
+    snd = cosramp_onoff(n_samples, ramp_samples=np.round(ramplen_ms/1000*fs))
+    return apply_itd(fs, snd_mono, itd_us=itd_us)
 
 class AudioPlayer(Audio):
 
@@ -38,8 +101,8 @@ class AudioPlayer(Audio):
 
     def _repr_html_(self):
         audio = super()._repr_html_()
-        # audio = audio.replace('<audio', f'<audio onended="this.parentNode.removeChild(this)"')
-        return f'<div style="display:none">{audio}</div>'
+        return audio.replace('<audio', f'<audio onended="this.parentNode.removeChild(this)"')
+        # return f'<div style="height:1px">{audio}</div>'
 
 class LocalizationExpt():
 
@@ -109,9 +172,7 @@ class LocalizationExpt():
         self.set_sound_button_enabled(False)
         (freq, indep) = self.all_trial_params[self.trial_idx, :]
         self.widgets['audio'].update_data(self.fs, self.stim_gen(freq, indep))
-        self.widgets['audio'].autoplay = True
         display(self.widgets['audio'])
-        self.widgets['audio'].autoplay = True
         self.set_status_text('Trial %d of %d: Click "Left" or "Right"' % (self.trial_idx+1, self.n_trials))
 
     def responseButton_clicked(self, side, b):
