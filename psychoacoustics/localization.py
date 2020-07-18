@@ -131,7 +131,7 @@ class AudioPlayer(Audio):
 
 class LocalizationExpt():
 
-    def __init__(self, freqs=[500, 3000], n_reps=6, type='ILD'):
+    def __init__(self, freqs=[500, 2000], n_reps=8, type='ILD'):
         self.fs = F_S
         self.len_s = 0.5
         self.type = type.upper()
@@ -139,9 +139,9 @@ class LocalizationExpt():
             self.indep = np.linspace(-5, 5, 8)
         else:
             self.type = 'ITD'
-            self.indep = np.linspace(-500, 500, 8)
+            self.indep = np.linspace(-300, 300, 8)
 
-        self.freqs = np.array([500, 3000])
+        self.freqs = np.array(freqs)
         self.n_reps = n_reps
         self.buttons = {}
 
