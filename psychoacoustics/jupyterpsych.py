@@ -12,9 +12,7 @@ from IPython.display import Audio, display
 from IPython.core.display import HTML, display as cdisplay
 import ipywidgets as widgets
 from statsmodels.tools.sm_exceptions import ConvergenceWarning
-from psychoacoustics.sound import ild_stimulus
-
-F_S = 44100
+from psychoacoustics.sound import ild_stimulus, make_diotic, whitenoise, level2amp, dBSPL2rms
 
 def rm_out_padding():
     '''
@@ -38,18 +36,64 @@ def is_colab():
     except ModuleNotFoundError:
         return False
 
-def headphone_check():
+class JupyterPsych():
     '''
-    Show widgets which play left/right sounds
+    Basic setup of common experimental parameters
     '''
-    left_stim = ild_stimulus(F_S, 2, 500, ild_dB=-100)
-    left_widget = AudioPlayer(left_stim, rate=F_S, autoplay=False)
-    right_stim = ild_stimulus(F_S, 2, 500, ild_dB=100)
-    right_widget = AudioPlayer(right_stim, rate=F_S, autoplay=False)
-    display(widgets.Label('This sound should play in the left headphone only:'))
-    display(left_widget)
-    display(widgets.Label('This sound should play in the right headphone only:'))
-    display(right_widget)
+
+    def __init__(self):
+        self.f_s = 44100
+        self.calib_multiplier = None
+
+    def headphone_check(self):
+        '''
+        Show widgets which play left/right sounds
+        '''
+        left_stim = ild_stimulus(self.f_s, 2, 500, ild_dB=-100)
+        left_widget = AudioPlayer(left_stim, rate=self.f_s, autoplay=False)
+        right_stim = ild_stimulus(self.f_s, 2, 500, ild_dB=100)
+        right_widget = AudioPlayer(right_stim, rate=self.f_s, autoplay=False)
+        display(widgets.Label('This sound should play in the left headphone only:'))
+        display(left_widget)
+        display(widgets.Label('This sound should play in the right headphone only:'))
+        display(right_widget)
+
+    def calibrate_sound_level(self):
+        '''
+        Calibrate sound level to match level of rubbing hands together (roughly 60dB SPL)
+        '''
+        n_samples = self.f_s
+
+        snd = make_diotic(whitenoise(n_samples, method='uniform'))
+        wn = snd/np.max(np.abs(snd))
+        max_rms = np.sqrt(np.mean(wn**2))
+
+        def f(Volume):
+            '''
+            Called when slider is created and adjusted
+            '''
+
+            # slider value of 1 == -20dB, slider value of 10 == 0dB
+            dB_atten = -20+(Volume-1)*(20/9)
+            mult = level2amp(dB_atten)
+            audio = AudioPlayer(wn*mult, rate=self.f_s, autoplay=False,
+                                scale_to_max=False, hide_on_click=False)
+            audio.update_data(self.f_s, wn*mult, scale_to_max=False)
+            display(audio)
+
+            # If we generate a sound with RMS_out=1, we want to get a sound with RMS_Pa=1,
+            # i.e. expected_rms_Pa=1
+            #
+            # If we calibrate with a sound with expected_rms_Pa=X and actual_rms_Pa=Y, then:
+            # multiplier = expected_rms_Pa / actual_rms_Pa
+            expected_rms_Pa = mult * max_rms
+            actual_rms_Pa = dBSPL2rms(60)
+            self.calib_multiplier = expected_rms_Pa / actual_rms_Pa
+
+        display(widgets.Label('Adjust the slider and your computer\'s volume so that the level of the sound matches the \
+    level when you rub your hands together:'))
+
+        widgets.interact(f, Volume=widgets.IntSlider(min=1, max=10, step=1, value=10, readout=False))
 
 class AudioPlayer(Audio):
     '''

@@ -10,8 +10,7 @@ import ipywidgets as widgets
 from IPython.display import display
 from psychoacoustics.sound import ild_stimulus, itd_stimulus
 from psychoacoustics.stats import logistic, probit_fit
-# need headphone_check so it is included in 'from psychoacoustics.localization import *' in notebook
-from psychoacoustics.jupyterpsych import is_colab, headphone_check, AudioPlayer, collate_responses
+from psychoacoustics.jupyterpsych import is_colab, JupyterPsych, AudioPlayer, collate_responses
 
 F_S = 44100
 
@@ -20,14 +19,18 @@ class LocalizationExpt():
     Sound localisation expt
     '''
 
-    def __init__(self, freqs=None, n_reps=8, type='ILD'):
-        self.fs = F_S
+    def __init__(self, freqs=None, n_reps=8, cue_type='ILD', jupyterpsych=None):
+        if jupyterpsych is None:
+            jupyterpsych = JupyterPsych()
+        self.jupyterpsych = jupyterpsych
+
+        self.f_s = self.jupyterpsych.f_s
         self.len_s = 0.5
-        self.type = type.upper()
-        if self.type == 'ILD':
+        self.cue_type = cue_type.upper()
+        if self.cue_type == 'ILD':
             self.indep = np.linspace(-5, 5, 8)
         else:
-            self.type = 'ITD'
+            self.cue_type = 'ITD'
             self.indep = np.linspace(-300, 300, 8)
 
         if freqs is None:
@@ -54,7 +57,7 @@ class LocalizationExpt():
 
         self.widgets = {}
         freq, indep = self.all_trial_params[0, :]
-        self.widgets['audio'] = AudioPlayer(self.stim_gen(freq, indep), rate=self.fs,
+        self.widgets['audio'] = AudioPlayer(self.stim_gen(freq, indep), rate=self.f_s,
                                             autoplay=True, hide_on_click=True)
         self.widgets['leftButton'] = widgets.Button(description='Left')
         self.widgets['leftButton'].on_click(lambda x: self.responseButton_clicked('left', x))
@@ -105,7 +108,7 @@ class LocalizationExpt():
         self.set_response_buttons_enabled(True)
         self.set_sound_button_enabled(False)
         freq, indep = self.all_trial_params[self.trial_idx, :]
-        self.widgets['audio'].update_data(self.fs, self.stim_gen(freq, indep))
+        self.widgets['audio'].update_data(self.f_s, self.stim_gen(freq, indep))
         display(self.widgets['audio'])
         self.set_status_text('Trial %d of %d: Click "Left" or "Right"' %
                              (self.trial_idx+1, self.n_trials))
@@ -133,9 +136,9 @@ class LocalizationExpt():
         '''
         Generate ILD/ITD stimulus
         '''
-        if self.type == 'ILD':
-            return ild_stimulus(self.fs, self.len_s, freq, ild_dB=indep)
-        return itd_stimulus(self.fs, self.len_s, freq, itd_us=indep)
+        if self.cue_type == 'ILD':
+            return ild_stimulus(self.f_s, self.len_s, freq, ild_dB=indep)
+        return itd_stimulus(self.f_s, self.len_s, freq, itd_us=indep)
 
     def generate_data(self):
         '''
@@ -155,7 +158,7 @@ class LocalizationExpt():
         '''
         Label for independent variable
         '''
-        if self.type == 'ILD':
+        if self.cue_type == 'ILD':
             return 'ILD (dB)'
         return 'ITD (us)'
 
