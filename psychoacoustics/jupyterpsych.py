@@ -71,14 +71,20 @@ class AudioPlayer(Audio):
         '''
         Convert ndarray to wav format bytes
         '''
-        nchannels = snd.shape[0]
-        snd = snd.transpose().ravel()
+        if len(snd.shape) == 1:
+            nchannels = 1
+        else:
+            nchannels = snd.shape[0]
+            snd = snd.transpose().ravel()
+
         mx = np.max(np.abs(snd))
 
         if scale_to_max and mx > 0:
             # if sound is empty, don't attempt to scale it
             snd = snd/mx*32767.0
         else:
+            if mx > 1:
+                print('Clipping sound on wav conversion')
             snd = snd * 32767.0
 
         snd_b = snd.astype(np.int16).tostring()
