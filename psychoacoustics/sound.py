@@ -71,16 +71,22 @@ def freq_sweep(fs, n_samples, f_min=200, f_max=1000, method='log', level_dB='max
 
 def whitenoise(n_samples, method='uniform', level_dB='max'):
     '''
-    Generate white noise -- NB level_dB='max' doesn't work for method='normal'
+    Generate white noise -- NB method='normal', level_dB='max' will
+    scale the range depending on the random numbers produced, so won't
+    give a consistent sound level
     '''
+    if method.lower()[0] == 'u': # 'uniform'
+        if level_dB == 'max':
+            mult = 1
+        else:
+            mult = np.sqrt(3) * dBSPL2rms(level_dB)
+        return ((2*np.random.random((n_samples)))-1) * mult
+    # elif method.lower()[0] == 'n': # 'normal'
+    rand = np.random.randn((n_samples))
     if level_dB == 'max':
-        mult = 1
+        return rand / np.max(np.abs(rand))
     else:
-        mult = dBSPL2rms(level_dB)
-    if method.lower()[0] == 'n': # 'normal'
-        return np.random.randn((n_samples)) * mult
-    # else: 'method' == 'uniform':
-    return np.random.random((n_samples)) * np.sqrt(3) * mult
+        return np.random.randn((n_samples)) * dBSPL2rms(level_dB)
 
 def cosramp_on(n_samples, ramp_samples=None):
     '''
