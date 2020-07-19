@@ -51,39 +51,49 @@ def headphone_check():
     display(widgets.Label('This sound should play in the right headphone only:'))
     display(right_widget)
 
-def ndarray2wavbytes(fs, snd):
-    '''
-    Convert ndarray to wav format bytes
-    '''
-    nchannels = snd.shape[0]
-    mx = np.max(np.abs(snd))
-    snd = snd.transpose().ravel()
-    if mx > 0:
-        snd = snd/mx*32767.0
-    snd_b = snd.astype(np.int16).tostring()
-    output = BytesIO()
-    with wave.open(output, 'w') as s:
-        s.setnchannels(nchannels)
-        s.setsampwidth(2)
-        s.setframerate(fs)
-        s.writeframesraw(snd_b)
-    return output.getvalue()
-
 class AudioPlayer(Audio):
     '''
     Customised AudioPlayer class
     '''
 
-    def __init__(self, snd, *args, hide_on_click=False, **kwargs):
+    def __init__(self, snd, *args, rate=None, hide_on_click=False, scale_to_max=True, **kwargs):
+        '''
+        Initialise with empty sound, then update using update_data, so that we can set the
+        level of the sound if we want to by setting scale_to_max=False
+        '''
         self.data = None
-        super().__init__(snd, *args, **kwargs)
+        super().__init__(np.ones(snd.shape), rate=rate, *args, **kwargs)
+        self.update_data(rate, snd, scale_to_max=scale_to_max)
         self.hide_on_click = hide_on_click
 
-    def update_data(self, fs, ndarray):
+    @classmethod
+    def ndarray2wavbytes(cls, fs, snd, scale_to_max=True):
+        '''
+        Convert ndarray to wav format bytes
+        '''
+        nchannels = snd.shape[0]
+        snd = snd.transpose().ravel()
+        mx = np.max(np.abs(snd))
+
+        if scale_to_max and mx > 0:
+            # if sound is empty, don't attempt to scale it
+            snd = snd/mx*32767.0
+        else:
+            snd = snd * 32767.0
+
+        snd_b = snd.astype(np.int16).tostring()
+        output = BytesIO()
+        with wave.open(output, 'wb') as s:
+            # (nchannels, sampwidth, framerate, nframes, comptype, compname)
+            s.setparams((nchannels, 2, fs, 1, 'NONE', 'NONE'))
+            s.writeframesraw(snd_b)
+        return output.getvalue()
+
+    def update_data(self, fs, ndarray, scale_to_max=True):
         '''
         Update sound data
         '''
-        self.data = ndarray2wavbytes(fs, ndarray)
+        self.data = self.ndarray2wavbytes(fs, ndarray, scale_to_max=scale_to_max)
 
     def _repr_html_(self):
         '''
