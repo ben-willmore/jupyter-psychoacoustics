@@ -59,7 +59,8 @@ class AudioPlayer(Audio):
     def __init__(self, snd, *args, rate=None, hide_on_click=False, scale_to_max=True, **kwargs):
         '''
         Initialise with empty sound, then update using update_data, so that we can set the
-        level of the sound if we want to by setting scale_to_max=False
+        level of the sound if we want to by setting scale_to_max=False.
+         If multichannel, sound should be (n_channels, n_samples)
         '''
         self.data = None
         super().__init__(np.ones(snd.shape), rate=rate, *args, **kwargs)
@@ -69,7 +70,8 @@ class AudioPlayer(Audio):
     @classmethod
     def ndarray2wavbytes(cls, fs, snd, scale_to_max=True):
         '''
-        Convert ndarray to wav format bytes
+        Convert ndarray to wav format bytes. If multichannel, sound should be
+        (n_channels, n_samples)
         '''
         if len(snd.shape) == 1:
             nchannels = 1

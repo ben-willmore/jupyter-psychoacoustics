@@ -61,6 +61,12 @@ def freq_sweep(fs, n_samples, f_min, f_max, method='log', level_dB=94, phase=0):
         k = (f_max/f_min)**(fs/n_samples)
         return np.sin(2*np.pi*f_min*(k**t-1)/np.log(k) + phase)
 
+def whitenoise(n_samples, level_dB=94):
+    '''
+    Generate white noise
+    '''
+    return np.random.randn((n_samples)) * dBSPL2rms(level_dB)
+
 def cosramp_on(n_samples, ramp_samples=None):
     '''
     Ramp on - total length n_samples, ramp length ramp_samples
@@ -85,32 +91,38 @@ def cosramp_onoff(n_samples, ramp_samples):
     r = cosramp_on(n_samples, ramp_samples)
     return r * r[::-1]
 
+def make_diotic(snd, n_channels=2):
+    '''
+    Duplicate sound to 2 or more channels
+    '''
+    return np.stack(snd.ravel(), axis=0)
+
 def apply_ild(fs, snd, ild_dB=10):
     left = snd
     right = snd * level2amp(ild_dB)
-    return np.stack((left, right))
+    return np.stack((left, right), axis=0)
 
 def apply_itd(fs, snd, itd_us=100):
     shift_samples = np.int(np.abs(itd_us*1000/fs))
     leading = np.concatenate((snd, np.zeros(shift_samples)))
     lagging = np.concatenate((np.zeros(shift_samples), snd))
-    if itd_us<0:
-        return np.stack((leading, lagging))
+    if itd_us < 0:
+        return np.stack((leading, lagging), axis=0)
     else:
-        return np.stack((lagging, leading))
+        return np.stack((lagging, leading), axis=0)
 
 def ild_stimulus(fs, len_s, f0, ild_dB):
     n_samples = np.int(len_s*fs)
     snd_mono = puretone(fs, n_samples, f0)
     ramplen_ms = 5
-    snd = cosramp_onoff(n_samples, ramp_samples=np.round(ramplen_ms/1000*fs))
+    snd_mono = snd_mono * cosramp_onoff(n_samples, ramp_samples=np.round(ramplen_ms/1000*fs))
     return apply_ild(fs, snd_mono, ild_dB=ild_dB)
 
 def itd_stimulus(fs, len_s, f0, itd_us):
     n_samples = np.int(len_s*fs)
     snd_mono = puretone(fs, n_samples, f0)
     ramplen_ms = 5
-    snd = cosramp_onoff(n_samples, ramp_samples=np.round(ramplen_ms/1000*fs))
+    snd_mono = snd_mono * cosramp_onoff(n_samples, ramp_samples=np.round(ramplen_ms/1000*fs))
     return apply_itd(fs, snd_mono, itd_us=itd_us)
 
 def binaural_beats(f_s, n_samples, f_l=520, f_r=530):
