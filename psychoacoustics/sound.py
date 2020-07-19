@@ -54,18 +54,21 @@ def freq_sweep(fs, n_samples, f_min, f_max, method='log', level_dB=94, phase=0):
     Generate a frequency sweep
     '''
     t = np.arange(n_samples)/fs
-    if method.startswith('li'):
+    if method.lower().startswith('li'):
         c = (f_max-f_min)/(n_samples/fs)
         return np.sin(2*np.pi*(f_min*t + c/2*(t**2)) + phase) * np.sqrt(2) * dBSPL2rms(level_dB)
     else:
         k = (f_max/f_min)**(fs/n_samples)
         return np.sin(2*np.pi*f_min*(k**t-1)/np.log(k) + phase)
 
-def whitenoise(n_samples, level_dB=94):
+def whitenoise(n_samples, method='normal', level_dB=94):
     '''
     Generate white noise
     '''
-    return np.random.randn((n_samples)) * dBSPL2rms(level_dB)
+    if method.lower()[0] == 'n': # 'normal'
+        return np.random.randn((n_samples)) * dBSPL2rms(level_dB)
+    # else: 'method' == 'uniform':
+    return np.random.random((n_samples)) * np.sqrt(3) * dBSPL2rms(level_dB)
 
 def cosramp_on(n_samples, ramp_samples=None):
     '''
