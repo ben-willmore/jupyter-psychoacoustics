@@ -90,10 +90,12 @@ class JupyterPsych():
             actual_rms_Pa = dBSPL2rms(60)
             self.calib_multiplier = expected_rms_Pa / actual_rms_Pa
 
-        display(widgets.Label('Adjust the slider and your computer\'s volume so that the level of the sound matches the \
-    level when you rub your hands together:'))
+        display(widgets.Label(('Adjust the slider and your computer\'s '
+                               'volume so that the level of the sound matches the '
+                               'level when you rub your hands together:')))
 
-        widgets.interact(f, Volume=widgets.IntSlider(min=1, max=10, step=1, value=10, readout=False))
+        widgets.interact(
+            f, Volume=widgets.IntSlider(min=1, max=10, step=1, value=10, readout=False))
 
 class AudioPlayer(Audio):
     '''
