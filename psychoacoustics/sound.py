@@ -85,8 +85,8 @@ def whitenoise(n_samples, method='uniform', level_dB='max'):
     rand = np.random.randn((n_samples))
     if level_dB == 'max':
         return rand / np.max(np.abs(rand))
-    else:
-        return np.random.randn((n_samples)) * dBSPL2rms(level_dB)
+    # else:
+    return np.random.randn((n_samples)) * dBSPL2rms(level_dB)
 
 def cosramp_on(n_samples, ramp_samples=None):
     '''
@@ -116,14 +116,20 @@ def make_diotic(snd, n_channels=2):
     '''
     Duplicate sound to 2 or more channels
     '''
-    return np.stack(snd.ravel(), axis=0)
+    return np.tile(snd.ravel(), (n_channels, 1))
 
-def apply_ild(fs, snd, ild_dB=10):
+def apply_ild(snd, ild_dB=10):
+    '''
+    Apply an ILD to a mono sound, and return stereo sound
+    '''
     left = snd
     right = snd * level2amp(ild_dB)
     return np.stack((left, right), axis=0)
 
 def apply_itd(fs, snd, itd_us=100):
+    '''
+    Apply an ITD to a mono sound, and return stereo sound
+    '''
     shift_samples = np.int(np.abs(itd_us*1000/fs))
     leading = np.concatenate((snd, np.zeros(shift_samples)))
     lagging = np.concatenate((np.zeros(shift_samples), snd))
@@ -133,25 +139,31 @@ def apply_itd(fs, snd, itd_us=100):
     return np.stack((lagging, leading), axis=0)
 
 def ild_stimulus(fs, len_s, f0, ild_dB, level_dB='max'):
+    '''
+    Make a pure-tone ILD stimulus
+    '''
     n_samples = np.int(len_s*fs)
-    snd_mono = puretone(fs, n_samples, f0, level_dB=level_dB)
     ramplen_ms = 5
-    snd_mono = snd_mono * cosramp_onoff(n_samples, ramp_samples=np.round(ramplen_ms/1000*fs))
-    return apply_ild(fs, snd_mono, ild_dB=ild_dB)
+    snd_mono = puretone(fs, n_samples, f0, level_dB=level_dB) * \
+        cosramp_onoff(n_samples, ramp_samples=np.round(ramplen_ms/1000*fs))
+    return apply_ild(snd_mono, ild_dB=ild_dB)
 
 def itd_stimulus(fs, len_s, f0, itd_us, level_dB='max'):
+    '''
+    Make a pure-tone ILD stimulus
+    '''
     n_samples = np.int(len_s*fs)
-    snd_mono = puretone(fs, n_samples, f0, level_dB=level_dB)
     ramplen_ms = 5
-    snd_mono = snd_mono * cosramp_onoff(n_samples, ramp_samples=np.round(ramplen_ms/1000*fs))
+    snd_mono = puretone(fs, n_samples, f0, level_dB=level_dB) * \
+        cosramp_onoff(n_samples, ramp_samples=np.round(ramplen_ms/1000*fs))
     return apply_itd(fs, snd_mono, itd_us=itd_us)
 
 def binaural_beats(f_s, n_samples, f_l=520, f_r=530, level_dB='max'):
     '''
     Binaural beat stimulus
     '''
-    return np.stack((puretone(f_s, n_samples, f_l, level_dB='max'),
-                     puretone(f_s, n_samples, f_r)), axis=0, level_dB='max')
+    return np.stack((puretone(f_s, n_samples, f_l, level_dB=level_dB),
+                     puretone(f_s, n_samples, f_r, level_dB=level_dB)), axis=0)
 
 def spectrogram(*args, **kwargs):
     '''
