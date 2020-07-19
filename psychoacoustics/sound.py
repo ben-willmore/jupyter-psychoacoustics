@@ -42,33 +42,45 @@ def dBSPL2rms(dBSPL):
     '''
     return level2amp(dBSPL-94)
 
-def puretone(fs, n_samples, freq, level_dB=94, phase=0):
+def puretone(fs, n_samples, freq=440, level_dB='max', phase=0):
     '''
     Generate a pure tone
     '''
     t = np.arange(n_samples) * 1/fs
-    return np.sin(2*np.pi*freq*t + phase) * np.sqrt(2) * dBSPL2rms(level_dB)
+    if level_dB == 'max':
+        mult = 1
+    else:
+        mult = np.sqrt(2) * dBSPL2rms(level_dB)
+    return np.sin(2*np.pi*freq*t + phase) * mult
 
-def freq_sweep(fs, n_samples, f_min, f_max, method='log', level_dB=94, phase=0):
+def freq_sweep(fs, n_samples, f_min=200, f_max=1000, method='log', level_dB='max', phase=0):
     '''
     Generate a frequency sweep
     '''
     t = np.arange(n_samples)/fs
+    if level_dB == 'max':
+        mult = 1
+    else:
+        mult = np.sqrt(2) * dBSPL2rms(level_dB)
     if method.lower().startswith('li'):
         c = (f_max-f_min)/(n_samples/fs)
-        return np.sin(2*np.pi*(f_min*t + c/2*(t**2)) + phase) * np.sqrt(2) * dBSPL2rms(level_dB)
-    else:
-        k = (f_max/f_min)**(fs/n_samples)
-        return np.sin(2*np.pi*f_min*(k**t-1)/np.log(k) + phase)
+        return np.sin(2*np.pi*(f_min*t + c/2*(t**2)) + phase) * mult
+    # else: # method == 'log'
+    k = (f_max/f_min)**(fs/n_samples)
+    return np.sin(2*np.pi*f_min*(k**t-1)/np.log(k) + phase) * mult
 
-def whitenoise(n_samples, method='normal', level_dB=94):
+def whitenoise(n_samples, method='uniform', level_dB='max'):
     '''
-    Generate white noise
+    Generate white noise -- NB level_dB='max' doesn't work for method='normal'
     '''
+    if level_dB == 'max':
+        mult = 1
+    else:
+        mult = dBSPL2rms(level_dB)
     if method.lower()[0] == 'n': # 'normal'
-        return np.random.randn((n_samples)) * dBSPL2rms(level_dB)
+        return np.random.randn((n_samples)) * mult
     # else: 'method' == 'uniform':
-    return np.random.random((n_samples)) * np.sqrt(3) * dBSPL2rms(level_dB)
+    return np.random.random((n_samples)) * np.sqrt(3) * mult
 
 def cosramp_on(n_samples, ramp_samples=None):
     '''
@@ -111,28 +123,29 @@ def apply_itd(fs, snd, itd_us=100):
     lagging = np.concatenate((np.zeros(shift_samples), snd))
     if itd_us < 0:
         return np.stack((leading, lagging), axis=0)
-    else:
-        return np.stack((lagging, leading), axis=0)
+    # else: itd_us >= 0
+    return np.stack((lagging, leading), axis=0)
 
-def ild_stimulus(fs, len_s, f0, ild_dB):
+def ild_stimulus(fs, len_s, f0, ild_dB, level_dB='max'):
     n_samples = np.int(len_s*fs)
-    snd_mono = puretone(fs, n_samples, f0)
+    snd_mono = puretone(fs, n_samples, f0, level_dB=level_dB)
     ramplen_ms = 5
     snd_mono = snd_mono * cosramp_onoff(n_samples, ramp_samples=np.round(ramplen_ms/1000*fs))
     return apply_ild(fs, snd_mono, ild_dB=ild_dB)
 
-def itd_stimulus(fs, len_s, f0, itd_us):
+def itd_stimulus(fs, len_s, f0, itd_us, level_dB='max'):
     n_samples = np.int(len_s*fs)
-    snd_mono = puretone(fs, n_samples, f0)
+    snd_mono = puretone(fs, n_samples, f0, level_dB=level_dB)
     ramplen_ms = 5
     snd_mono = snd_mono * cosramp_onoff(n_samples, ramp_samples=np.round(ramplen_ms/1000*fs))
     return apply_itd(fs, snd_mono, itd_us=itd_us)
 
-def binaural_beats(f_s, n_samples, f_l=520, f_r=530):
+def binaural_beats(f_s, n_samples, f_l=520, f_r=530, level_dB='max'):
     '''
     Binaural beat stimulus
     '''
-    return np.stack((puretone(f_s, n_samples, f_l), puretone(f_s, n_samples, f_r)), axis=1)
+    return np.stack((puretone(f_s, n_samples, f_l, level_dB='max'),
+                     puretone(f_s, n_samples, f_r)), axis=0, level_dB='max')
 
 def spectrogram(*args, **kwargs):
     '''
@@ -148,4 +161,3 @@ def show_spectrogram(*args, **kwargs):
     _, ax = plt.subplots(figsize=(10, 6))
     ax.imshow(s, origin='lower', extent=[np.min(t), np.max(t), np.min(f), np.max(f)])
     ax.set_aspect((np.max(t)-np.min(t))/(np.max(f)-np.min(f))/2)
-
