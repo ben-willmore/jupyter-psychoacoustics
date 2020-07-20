@@ -98,7 +98,12 @@ class AudiogramExpt():
         '''
         with self.widgets['graphoutput']:
             clear_output()
-            _, ax = plt.subplots(figsize=(8, 3))
+            if self.jupyterpsych.is_colab():
+                figsize = (14, 8)
+                plt.rc('font', size=15)
+            else:
+                figsize = (9, 4)
+            _, ax = plt.subplots(figsize=figsize)
             if np.all(np.isnan(self.thresh)):
                 plt.scatter(np.array(self.freqs), 1000*np.ones(len(self.freqs)))
             else:
