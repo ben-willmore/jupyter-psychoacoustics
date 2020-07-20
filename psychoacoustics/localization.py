@@ -4,6 +4,8 @@ Sound localization practical using jupyter / google colab
 
 # pylint: disable=C0103, R0912, R0914
 
+from pathlib import Path
+import json
 import numpy as np
 from matplotlib import pyplot as plt
 import ipywidgets as widgets
@@ -19,7 +21,7 @@ class LocalizationExpt():
     Sound localisation expt
     '''
 
-    def __init__(self, freqs=None, n_reps=8, cue_type='ILD', jupyterpsych=None):
+    def __init__(self, freqs=None, n_reps=10, cue_type='ILD', jupyterpsych=None):
         if jupyterpsych is None:
             jupyterpsych = JupyterPsych()
         self.jupyterpsych = jupyterpsych
@@ -236,6 +238,33 @@ class LocalizationExpt():
 
         self.results_table()
         self.plot_results()
+
+    def dump_data(self, filename):
+        '''
+        Dump data to JSON file
+        '''
+        results = {'cue_type': self.cue_type,
+                   'all_trial_params': self.all_trial_params.tolist(),
+                   'responses': self.responses}
+
+        with open(filename, 'w') as outfile:
+            json.dump(results, outfile)
+
+    def load_data(self, filename=None):
+        '''
+        Load saved data from JSON file
+        '''
+        if not filename:
+            filename = Path(Path(__file__).parent, 'data', self.cue_type.upper()+ '_results.json')
+
+        with open(filename, 'r') as infile:
+            results = json.load(infile)
+
+        self.cue_type = results['cue_type']
+        self.all_trial_params = np.array(results['all_trial_params'])
+        self.responses = results['responses']
+        self.freqs = np.unique(np.array(self.all_trial_params)[:, 0])
+        self.indep = np.unique(np.array(self.all_trial_params)[:, 1])
 
 def print_setup_message():
     '''
