@@ -20,26 +20,25 @@ class TestGraph():
         self.widgets['graphoutput'] = widgets.Output()
         self.widgets['button'] = widgets.Button(description="Update")
         self.widgets['button'].on_click(self.on_button_clicked)
-        self.display()
 
-    def display(self):
+        display(self.widgets['graphoutput'])
+        display(self.widgets['button'])
+        self.plot()
+
+    def plot(self):
         '''
-        Clear and redraw the entire cell output, using a new Output to hold the new graph
-        because you don't seem to be able to clear Outputs on colab.
+        Plot graph in place of previous one
         '''
-        clear_output()
-        self.widgets['graphoutput'] = widgets.Output()
         with self.widgets['graphoutput']:
+            clear_output()
             fig, ax = plt.subplots()
             ax.set_ylim((0, 10))
             line = plt.plot(self.freqs, self.thresh)
             plt.show()
-        display(self.widgets['graphoutput'])
-        display(self.widgets['button'])
 
     def on_button_clicked(self, _):
         self.thresh = self.thresh + 1
-        self.display()
+        self.plot()
 
 class AudiogramExpt():
     '''
