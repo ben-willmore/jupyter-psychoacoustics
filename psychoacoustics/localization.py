@@ -9,7 +9,7 @@ import json
 import numpy as np
 from matplotlib import pyplot as plt
 import ipywidgets as widgets
-from IPython.display import display
+from IPython.display import display, clear_output
 from psychoacoustics.sound import ild_stimulus, itd_stimulus
 from psychoacoustics.stats import logistic, probit_fit
 from psychoacoustics.jupyterpsych import JupyterPsych, AudioPlayer, collate_responses
@@ -26,7 +26,7 @@ class LocalizationExpt():
             jupyterpsych = JupyterPsych()
         self.jupyterpsych = jupyterpsych
 
-        self.jupyterpsych.remove_widget_padding()
+        # self.jupyterpsych.remove_widget_padding()
 
         self.f_s = self.jupyterpsych.f_s
         self.len_s = 0.5
@@ -113,7 +113,8 @@ class LocalizationExpt():
         self.set_sound_button_enabled(False)
         freq, indep = self.all_trial_params[self.trial_idx, :]
         self.widgets['audio'].update_data(self.f_s, self.stim_gen(freq, indep))
-        display(self.widgets['audio'])
+        with self.widgets['output']:
+            display(self.widgets['audio'])
         self.set_status_text('Trial %d of %d: Click "Left" or "Right"' %
                              (self.trial_idx+1, self.n_trials))
 
@@ -123,18 +124,19 @@ class LocalizationExpt():
         and update status text. Finish expt if all trials have been run
         '''
         self.set_response_buttons_enabled(False)
-        self.responses.append(side)
         with self.widgets['output']:
-            if self.trial_idx == self.n_trials-1:
-                with self.widgets['output']:
-                    self.set_status_text('Trial %d of %d: Experiment complete' %
-                                         (self.trial_idx+1, self.n_trials))
-                self.set_response_buttons_enabled(False)
-            else:
-                self.trial_idx = self.trial_idx + 1
-                self.set_status_text('Trial %d of %d: Click "Play sound"' %
-                                     (self.trial_idx+1, self.n_trials))
-                self.set_sound_button_enabled(True)
+            clear_output()
+        self.responses.append(side)
+
+        if self.trial_idx == self.n_trials-1:
+            self.set_status_text('Trial %d of %d: Experiment complete' %
+                                 (self.trial_idx+1, self.n_trials))
+            self.set_response_buttons_enabled(False)
+        else:
+            self.trial_idx = self.trial_idx + 1
+            self.set_status_text('Trial %d of %d: Click "Play sound"' %
+                                 (self.trial_idx+1, self.n_trials))
+            self.set_sound_button_enabled(True)
 
     def stim_gen(self, freq, indep):
         '''
