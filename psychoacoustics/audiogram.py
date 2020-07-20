@@ -42,8 +42,7 @@ class TestGraph():
 
 class AudiogramExpt():
     '''
-    Example of updating a graph when mouse is clicked, which works on google colab, unlike
-    other methods. E.G. you can't do self.widgets['graphoutput'].clear_output() on colab.
+    Audiogram Expt
     '''
     def __init__(self, jupyterpsych=None):
         if jupyterpsych is None:
@@ -55,11 +54,11 @@ class AudiogramExpt():
         self.freqs = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 15000, 20000]
         self.thresh = np.ones((len(self.freqs)))*np.nan
         self.widgets = self.setup_ui()
-        self.display()
+        self.plot()
 
     def setup_ui(self):
         '''
-        Set up widgets (but don't display them)
+        Set up widgets and display them
         '''
         w = {}
         w['graphoutput'] = widgets.Output()
@@ -84,8 +83,7 @@ class AudiogramExpt():
 
         # arrange widgets in vertical boxes for alignment
         labelbox = widgets.VBox((widgets.Label('Frequency'), widgets.Label('Level')))
-        sliderbox = widgets.VBox(
-            (w['freqslider'], w['levelslider']))
+        sliderbox = widgets.VBox((w['freqslider'], w['levelslider']))
         valuebox = widgets.VBox((w['freqvalue'], w['levelvalue']))
 
         # arrange boxes into a horizontal box -- this needs to be display()ed
@@ -97,40 +95,35 @@ class AudiogramExpt():
 
         w['button'] = widgets.Button(description="Record this point")
         w['button'].on_click(self.on_recordButton_clicked)
-        w['buttonbox'] = widgets.HBox(
-            (w['soundButton'], w['button']))
+        w['buttonbox'] = widgets.HBox((w['soundButton'], w['button']))
+
+        w['graphoutput'] = widgets.Output()
+        display(w['graphoutput'])
+        display(w['sliderbox'])
+        display(w['buttonbox'])
 
         return w
 
-    def plot_graph(self):
-        _, ax = plt.subplots(figsize=(8, 3))
-        if np.all(np.isnan(self.thresh)):
-            plt.scatter(np.array(self.freqs), 1000*np.ones(len(self.freqs)))
-        else:
-            plt.scatter(np.array(self.freqs), self.thresh)
-        ax.set_ylim((0, 90))
-        ax.set_xscale('log')
-        ax.set_xlim((10, 20000))
-        ax.set_xticks([10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000])
-        ax.get_xaxis().set_major_formatter(ScalarFormatter())
-        ax.set_xlabel('Frequency (Hz)')
-        ax.set_ylabel('Level (dB)')
-        ax.grid(True, which='both')
-        plt.show()
-
-    def display(self):
+    def plot(self):
         '''
-        Clear and redraw the entire cell output, using a new Output to hold the new graph
-        because you don't seem to be able to clear Outputs on colab.
+        Plot graph
         '''
-        clear_output()
-        self.widgets['graphoutput'] = widgets.Output()
         with self.widgets['graphoutput']:
-            self.plot_graph()
-
-        display(self.widgets['graphoutput'])
-        display(self.widgets['sliderbox'])
-        display(self.widgets['buttonbox'])
+            clear_output()
+            _, ax = plt.subplots(figsize=(8, 3))
+            if np.all(np.isnan(self.thresh)):
+                plt.scatter(np.array(self.freqs), 1000*np.ones(len(self.freqs)))
+            else:
+                plt.scatter(np.array(self.freqs), self.thresh)
+            ax.set_ylim((0, 90))
+            ax.set_xscale('log')
+            ax.set_xlim((10, 20000))
+            ax.set_xticks([10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000])
+            ax.get_xaxis().set_major_formatter(ScalarFormatter())
+            ax.set_xlabel('Frequency (Hz)')
+            ax.set_ylabel('Level (dB)')
+            ax.grid(True, which='both')
+            plt.show()
 
     def on_recordButton_clicked(self, _):
         '''
@@ -140,7 +133,7 @@ class AudiogramExpt():
         level = self.widgets['levelslider'].value
         if np.isnan(self.thresh[freq_idx]) or level < self.thresh[freq_idx]:
             self.thresh[freq_idx] = level
-        self.display()
+        self.plot()
 
     def on_soundButton_clicked(self, _):
         '''
