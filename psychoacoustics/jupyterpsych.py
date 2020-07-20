@@ -71,9 +71,13 @@ class JupyterPsych():
             actual_rms_Pa = dBSPL2rms(60)
             self.calib_multiplier = expected_rms_Pa / actual_rms_Pa
 
-        display(widgets.Label(('Adjust the slider and your computer\'s '
-                               'volume so that the level of the sound matches the '
-                               'level when you rub your hands together:')))
+        txt = ('Adjust the slider and your computer\'s '
+               'volume so that the level of the sound is 60 dB SPL.\n'
+               'If you have a decibel meter (e.g. on your phone), use that.\n'
+               'Otherwise, do this roughly by adjusting the sound so its level matches the '
+               'sound made by rubbing your hands together:')
+
+        display(widgets.Textarea(txt, layout={'width': '100%'}, rows=3))
 
         widgets.interact(
             f, Volume=widgets.IntSlider(min=1, max=10, step=1, value=10, readout=False))
