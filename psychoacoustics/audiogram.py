@@ -99,7 +99,7 @@ class AudiogramExpt():
         with self.widgets['graphoutput']:
             clear_output()
             if self.jupyterpsych.is_colab():
-                figsize = (14, 8)
+                figsize = (12, 6)
                 plt.rc('font', size=15)
             else:
                 figsize = (9, 4)
@@ -167,6 +167,9 @@ def print_setup_message():
 
 
 class TestGraph():
+    '''
+    Demo of updating a graph inside widgets.Output()
+    '''
     def __init__(self):
         self.freqs = np.logspace(np.log10(50), np.log10(20000))
         self.thresh = np.ones(self.freqs.shape)
@@ -186,11 +189,14 @@ class TestGraph():
         '''
         with self.widgets['graphoutput']:
             clear_output()
-            fig, ax = plt.subplots()
+            _, ax = plt.subplots()
             ax.set_ylim((0, 10))
-            line = plt.plot(self.freqs, self.thresh)
+            plt.plot(self.freqs, self.thresh)
             plt.show()
 
     def on_button_clicked(self, _):
+        '''
+        Respond to button click
+        '''
         self.thresh = self.thresh + 1
         self.plot()
