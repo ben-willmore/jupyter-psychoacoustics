@@ -9,12 +9,7 @@ from matplotlib import pyplot as plt
 from matplotlib.ticker import ScalarFormatter
 import ipywidgets as widgets
 from IPython.display import display, clear_output
-from psychoacoustics.sound import ild_stimulus, itd_stimulus
-from psychoacoustics.stats import logistic, probit_fit
-# need headphone_check so it is included in 'from psychoacoustics.localization import *' in notebook
-from psychoacoustics.jupyterpsych import is_colab, JupyterPsych, AudioPlayer, collate_responses
-
-F_S = 44100
+from psychoacoustics.jupyterpsych import JupyterPsych, AudioPlayer
 
 class TestGraph():
     def __init__(self):

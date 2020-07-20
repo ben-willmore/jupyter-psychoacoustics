@@ -12,7 +12,7 @@ import ipywidgets as widgets
 from IPython.display import display
 from psychoacoustics.sound import ild_stimulus, itd_stimulus
 from psychoacoustics.stats import logistic, probit_fit
-from psychoacoustics.jupyterpsych import is_colab, JupyterPsych, AudioPlayer, collate_responses
+from psychoacoustics.jupyterpsych import JupyterPsych, AudioPlayer, collate_responses
 
 F_S = 44100
 
@@ -25,6 +25,8 @@ class LocalizationExpt():
         if jupyterpsych is None:
             jupyterpsych = JupyterPsych()
         self.jupyterpsych = jupyterpsych
+
+        self.jupyterpsych.remove_widget_padding()
 
         self.f_s = self.jupyterpsych.f_s
         self.len_s = 0.5
@@ -186,7 +188,7 @@ class LocalizationExpt():
         '''
         Plot results
         '''
-        if is_colab():
+        if self.jupyterpsych.is_colab():
             figsize = (14, 8)
             plt.rc('font', size=15)
         else:

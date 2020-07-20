@@ -9,32 +9,13 @@ from io import BytesIO
 import wave
 import numpy as np
 from IPython.display import Audio, display
-from IPython.core.display import HTML, display as cdisplay
+from IPython.core.display import HTML, display as coredisplay
 import ipywidgets as widgets
 from statsmodels.tools.sm_exceptions import ConvergenceWarning
 from psychoacoustics.sound import ild_stimulus, make_diotic, whitenoise, level2amp, dBSPL2rms
 
-def rm_out_padding():
-    '''
-    remove glitchy padding around audioplayer widget
-    # https://github.com/jupyter-widgets/ipywidgets/issues/1845
-    '''
-    cdisplay(HTML("<style>div.output_subarea { padding:unset;}</style>"))
-
-rm_out_padding()
-
 # suppress statsmodels warnings
 warnings.simplefilter('ignore', ConvergenceWarning)
-
-def is_colab():
-    '''
-    True if running in google colab
-    '''
-    try:
-        import google.colab
-        return True
-    except ModuleNotFoundError:
-        return False
 
 class JupyterPsych():
     '''
@@ -96,6 +77,28 @@ class JupyterPsych():
 
         widgets.interact(
             f, Volume=widgets.IntSlider(min=1, max=10, step=1, value=10, readout=False))
+
+    @classmethod
+    def is_colab(cls):
+        '''
+        True if running in google colab
+        '''
+        try:
+            import google.colab
+            return True
+        except ModuleNotFoundError:
+            return False
+
+    @classmethod
+    def remove_widget_padding(cls):
+        '''
+        remove glitchy padding around audioplayer widget
+        # https://github.com/jupyter-widgets/ipywidgets/issues/1845
+        '''
+        coredisplay(HTML("<style>div.output_subarea { padding:unset;}</style>"))
+
+
+
 
 class AudioPlayer(Audio):
     '''
