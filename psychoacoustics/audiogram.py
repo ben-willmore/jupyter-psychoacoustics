@@ -4,6 +4,7 @@ Sound localization practical using jupyter / google colab
 
 # pylint: disable=C0103, R0912, R0914
 
+import asyncio
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.ticker import ScalarFormatter
@@ -118,6 +119,70 @@ class AudiogramExpt():
             ax.grid(True, which='both')
             plt.show()
 
+    @classmethod
+    def standard_thresholds(cls):
+        freqs = [20, 70, 100, 200, 300, 400, 600, 1000, 1800, 2000, 3800, 9000,
+                 10000, 12000, 15000, 20000, 25000]
+        levels = [75, 33, 26, 13, 9, 7, 6, 5, 5, 4, -5, 17, 17, 20, 20, 75, 75]
+        return freqs, levels
+
+    def plot_standard_thresholds(self, use_fake_data=True):
+        if use_fake_data:
+            self.thresh = [75, 60, 40, 26, 13, 7, 5, 5, 0, 10, 17,
+                           17, 18, 19, 20, 15, 65,
+                           60, 60, 75, 75, 75]
+            self.thresh = [s + 20 for s in self.thresh]
+
+        freqs, levels = self.standard_thresholds()
+
+        if self.jupyterpsych.is_colab():
+            figsize = (12, 6)
+            plt.rc('font', size=15)
+        else:
+            figsize = (9, 4)
+        _, ax = plt.subplots(figsize=figsize)
+
+        plt.plot(self.freqs, self.thresh)
+        plt.plot(freqs, levels)
+        ax.set_ylim((-30, 80))
+        ax.set_xscale('log')
+        ax.set_xlim((10, 20000))
+        ax.set_xticks([10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000])
+        ax.get_xaxis().set_major_formatter(ScalarFormatter())
+        ax.set_xlabel('Frequency (Hz)')
+        ax.set_ylabel('Level (dB)')
+        ax.grid(True, which='both')
+        plt.legend(['Your thresholds', 'Standard thresholds'])
+        plt.show()
+
+    def plot_clinical_audiogram(self, use_fake_data=True):
+        if use_fake_data:
+            self.thresh = [75, 60, 40, 26, 13, 7, 5, 5, 0, 10, 17,
+                           17, 18, 19, 20, 15, 65,
+                           60, 60, 75, 75, 75]
+            self.thresh = [s + 20 for s in self.thresh]
+        freqs, levels = self.standard_thresholds()
+        levels_interp = np.interp(self.freqs, freqs, levels)
+        if self.jupyterpsych.is_colab():
+            figsize = (12, 6)
+            plt.rc('font', size=15)
+        else:
+            figsize = (9, 4)
+        _, ax = plt.subplots(figsize=figsize)
+        plt.plot(self.freqs, self.thresh - levels_interp)
+        plt.plot([10, 20000], [0, 0], 'k')
+        ax.invert_yaxis()
+        ax.set_ylim((60, -20))
+        ax.set_xscale('log')
+        ax.set_xlim((10, 20000))
+        ax.set_xticks([10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000])
+        ax.get_xaxis().set_major_formatter(ScalarFormatter())
+        ax.set_xlabel('Frequency (Hz)')
+        ax.set_ylabel('Level (dB)')
+        ax.grid(True, which='both')
+        # plt.legend(['Your thresholds', 'Standard thresholds'])
+        plt.show()
+
     def on_recordButton_clicked(self, _):
         '''
         Update graph data and redisplay whole UI
@@ -165,6 +230,128 @@ def print_setup_message():
     print('\n=== Setup complete ===\n')
     print('Now, move on to the next cell to set up your headphones\n')
 
+
+def plot_disorders(jupyterpsych=None):
+    '''
+    Plot hearing disorder audiograms
+    '''
+    if jupyterpsych is not None and jupyterpsych.is_colab():
+        figsize = (12, 6)
+        plt.rc('font', size=15)
+    else:
+        figsize = (9, 4)
+
+    _, ax = plt.subplots(figsize=figsize)
+
+    freqs = [50, 125, 250, 500, 1000, 2000, 3000, 4000, 5000, 8000]
+    levels = [15, 10, 15, 25, 20, 30, 45, 67, 70, 70]
+    plt.plot(freqs, levels)
+
+    freqs = [50, 125, 250, 500, 1000, 2000, 3000, 4000, 5000, 8000]
+    levels = [35, 30, 35, 30, 24, 30, 35, 0, 30, 30]
+    plt.plot(freqs, levels)
+
+    freqs = [50, 125, 250, 500, 1000, 2000, 4000, 8000]
+    levels = [7, 5, 5, 5, 10, 20, 50, 20]
+    plt.plot(freqs, levels)
+
+    ax.invert_yaxis()
+    ax.set_ylim((80, -10))
+    ax.set_xscale('log')
+    ax.set_xlim((10, 20000))
+    ax.set_xticks([10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000])
+    ax.get_xaxis().set_major_formatter(ScalarFormatter())
+    ax.set_xlabel('Frequency (Hz)')
+    ax.set_ylabel('Level (dB)')
+    ax.grid(True, which='both')
+    plt.legend(['A', 'B', 'C'])
+    plt.show()  # generate a presbyacusis audiogram
+
+# see https://ipywidgets.readthedocs.io/en/latest/examples/Widget%20Events.html
+
+class Timer:
+    def __init__(self, timeout, callback):
+        self._timeout = timeout
+        self._callback = callback
+        self._task = asyncio.ensure_future(self._job())
+
+    async def _job(self):
+        await asyncio.sleep(self._timeout)
+        self._callback()
+
+    def cancel(self):
+        self._task.cancel()
+
+def debounce(wait):
+    """ Decorator that will postpone a function's
+        execution until after `wait` seconds
+        have elapsed since the last time it was invoked. """
+    def decorator(fn):
+        timer = None
+        def debounced(*args, **kwargs):
+            nonlocal timer
+            def call_it():
+                fn(*args, **kwargs)
+            if timer is not None:
+                timer.cancel()
+            timer = Timer(wait, call_it)
+        return debounced
+    return decorator
+
+class SquareWave():
+    '''
+    Plot square wave composed of sinusoids
+    '''
+
+    def __init__(self, jupyterpsych=None):
+        self.jupyterpsych = jupyterpsych
+        self.widgets = {}
+        self.t = np.linspace(0, 1, 400)
+        self.widgets['graphoutput'] = widgets.Output()
+
+        # freq slider
+        self.widgets['freqlabel'] = widgets.Label('Frequency of highest component:')
+        self.widgets['slider'] = widgets.IntSlider(min=1, max=20, step=1, value=10, readout=False)
+        self.widgets['freqvalue'] = widgets.Label('23 Hz')
+        @debounce(1)
+        def f(_):
+            self.widgets['freqvalue'].value = '%d Hz' % (((self.widgets['slider'].value*2)-1)*500)
+            self.plot()
+        self.widgets['slider'].observe(f)
+        self.widgets['sliderbox'] = widgets.HBox(
+            (self.widgets['freqlabel'], self.widgets['slider'], self.widgets['freqvalue']))
+        self.widgets['box'] = widgets.VBox((self.widgets['graphoutput'], self.widgets['sliderbox']))
+        self.plot()
+        display(self.widgets['box'])
+
+    def plot(self):
+        '''
+        Plot square wave composed of n sinusoidal components
+        '''
+        # with self.widgets['graphoutput']:
+        #     clear_output()
+        #     _, ax = plt.subplots()
+        #     ax.set_ylim((0, 10))
+        #     plt.plot(self.freqs, self.thresh)
+        #     plt.show()
+
+
+        if self.jupyterpsych is not None and self.jupyterpsych.is_colab():
+            figsize = (12, 6)
+            plt.rc('font', size=15)
+        else:
+            figsize = (9, 4)
+        with self.widgets['graphoutput']:
+            clear_output(wait=True)
+            _, ax = plt.subplots(figsize=figsize)
+            y = np.zeros(400)
+            for a in range(1, self.widgets['slider'].value+1):
+                c = a*2-1
+                tone = 1/c*puretone(1, 400, c/200)
+                plt.plot(self.t, tone, 'r')
+                y = y + tone
+            plt.plot(self.t, y, 'k', linewidth=4)
+            plt.show()
 
 class TestGraph():
     '''
