@@ -267,37 +267,6 @@ def plot_disorders(jupyterpsych=None):
     plt.legend(['A', 'B', 'C'])
     plt.show()  # generate a presbyacusis audiogram
 
-# see https://ipywidgets.readthedocs.io/en/latest/examples/Widget%20Events.html
-
-class Timer:
-    def __init__(self, timeout, callback):
-        self._timeout = timeout
-        self._callback = callback
-        self._task = asyncio.ensure_future(self._job())
-
-    async def _job(self):
-        await asyncio.sleep(self._timeout)
-        self._callback()
-
-    def cancel(self):
-        self._task.cancel()
-
-def debounce(wait):
-    """ Decorator that will postpone a function's
-        execution until after `wait` seconds
-        have elapsed since the last time it was invoked. """
-    def decorator(fn):
-        timer = None
-        def debounced(*args, **kwargs):
-            nonlocal timer
-            def call_it():
-                fn(*args, **kwargs)
-            if timer is not None:
-                timer.cancel()
-            timer = Timer(wait, call_it)
-        return debounced
-    return decorator
-
 class SquareWave():
     '''
     Plot square wave composed of sinusoids
@@ -307,35 +276,37 @@ class SquareWave():
         self.jupyterpsych = jupyterpsych
         self.widgets = {}
         self.t = np.linspace(0, 1, 400)
+        self.n = 10
         self.widgets['graphoutput'] = widgets.Output()
 
-        # freq slider
-        self.widgets['freqlabel'] = widgets.Label('Frequency of highest component:')
-        self.widgets['slider'] = widgets.IntSlider(min=1, max=20, step=1, value=10, readout=False)
-        self.widgets['freqvalue'] = widgets.Label('23 Hz')
-        @debounce(1)
-        def f(_):
-            self.widgets['freqvalue'].value = '%d Hz' % (((self.widgets['slider'].value*2)-1)*500)
-            self.plot()
-        self.widgets['slider'].observe(f)
-        self.widgets['sliderbox'] = widgets.HBox(
-            (self.widgets['freqlabel'], self.widgets['slider'], self.widgets['freqvalue']))
-        self.widgets['box'] = widgets.VBox((self.widgets['graphoutput'], self.widgets['sliderbox']))
-        self.plot()
+        # control number of components
+        freqlabel = widgets.Label('Frequency of highest component:')
+        down = widgets.Button(description='Decrease')
+        down.on_click(lambda x: self.update_n(self.n-1))
+        self.widgets['freqvalue'] = widgets.Label('%d Hz' % (((self.n*2)-1)*500))
+        up = widgets.Button(description='Increase')
+        up.on_click(lambda x: self.update_n(self.n+1))
+        self.widgets['audiooutput'] = widgets.Output()
+        self.widgets['audioplayer'] = AudioPlayer(np.ones(500), rate=self.jupyterpsych.f_s,
+                                                  autoplay=False, hide_on_click=False)
+        freqbox = widgets.HBox(
+            (freqlabel, down, self.widgets['freqvalue'], up, self.widgets['audiooutput']))
+        self.widgets['box'] = widgets.VBox((self.widgets['graphoutput'], freqbox))
         display(self.widgets['box'])
+        self.plot()
+
+    def update_n(self, n):
+        '''
+        Update display and sound to match current number of components
+        '''
+        self.n = max(min(n, 20), 0)
+        self.widgets['freqvalue'].value = '%d Hz' % (((self.n*2)-1)*500)
+        self.plot()
 
     def plot(self):
         '''
         Plot square wave composed of n sinusoidal components
         '''
-        # with self.widgets['graphoutput']:
-        #     clear_output()
-        #     _, ax = plt.subplots()
-        #     ax.set_ylim((0, 10))
-        #     plt.plot(self.freqs, self.thresh)
-        #     plt.show()
-
-
         if self.jupyterpsych is not None and self.jupyterpsych.is_colab():
             figsize = (12, 6)
             plt.rc('font', size=15)
@@ -343,15 +314,20 @@ class SquareWave():
             figsize = (9, 4)
         with self.widgets['graphoutput']:
             clear_output(wait=True)
-            _, ax = plt.subplots(figsize=figsize)
-            y = np.zeros(400)
-            for a in range(1, self.widgets['slider'].value+1):
+            plt.subplots(figsize=figsize)
+            y = np.zeros(self.jupyterpsych.f_s*2)
+            for a in range(1, self.n+1):
                 c = a*2-1
-                tone = 1/c*puretone(1, 400, c/200)
-                plt.plot(self.t, tone, 'r')
+                tone = 1/c*puretone(self.jupyterpsych.f_s*2, self.jupyterpsych.f_s*2, 500*c)
+                plt.plot(self.t, tone[:400], 'b')
                 y = y + tone
-            plt.plot(self.t, y, 'k', linewidth=4)
+            plt.plot(self.t, y[:400], 'k', linewidth=4)
             plt.show()
+
+        with self.widgets['audiooutput']:
+            clear_output(wait=True)
+            self.widgets['audioplayer'].update_data(self.jupyterpsych.f_s, y)
+            display(self.widgets['audioplayer'])
 
 class TestGraph():
     '''
@@ -379,6 +355,7 @@ class TestGraph():
             _, ax = plt.subplots()
             ax.set_ylim((0, 10))
             plt.plot(self.freqs, self.thresh)
+            # THE FOLLOWING IS ESSENTIAL:
             plt.show()
 
     def on_button_clicked(self, _):
