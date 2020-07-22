@@ -125,7 +125,7 @@ class LocalizationExpt():
         '''
         self.set_response_buttons_enabled(False)
         with self.widgets['output']:
-            clear_output()
+            clear_output(wait=True)
         self.responses.append(side)
 
         if self.trial_idx == self.n_trials-1:

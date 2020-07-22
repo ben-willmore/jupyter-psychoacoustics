@@ -4,10 +4,12 @@ Sound localization practical using jupyter / google colab
 
 # pylint: disable=C0103, R0912, R0914
 
-import asyncio
+from pathlib import Path
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.ticker import ScalarFormatter
+from scipy.signal import stft, istft, spectrogram
+from scipy.io.wavfile import read as wavread
 import ipywidgets as widgets
 from IPython.display import display, clear_output
 from psychoacoustics.jupyterpsych import JupyterPsych, AudioPlayer
@@ -98,7 +100,7 @@ class AudiogramExpt():
         Plot graph
         '''
         with self.widgets['graphoutput']:
-            clear_output()
+            clear_output(wait=True)
             if self.jupyterpsych.is_colab():
                 figsize = (12, 6)
                 plt.rc('font', size=15)
@@ -156,6 +158,10 @@ class AudiogramExpt():
         plt.show()
 
     def plot_clinical_audiogram(self, use_fake_data=True):
+        '''
+        Plot difference of measured and standard values, on confusing monotonically
+        decreasing scale, as used for clinical audiograms
+        '''
         if use_fake_data:
             self.thresh = [75, 60, 40, 26, 13, 7, 5, 5, 0, 10, 17,
                            17, 18, 19, 20, 15, 65,
@@ -205,7 +211,7 @@ class AudiogramExpt():
         snd_calib = snd * self.jupyterpsych.calib_multiplier
         self.widgets['audio'].update_data(self.f_s, snd_calib, scale_to_max=False)
         with self.widgets['audiooutput']:
-            clear_output()
+            clear_output(wait=True)
             display(self.widgets['audio'])
 
     def on_deleteButton_clicked(self, _):
@@ -235,7 +241,9 @@ def plot_disorders(jupyterpsych=None):
     '''
     Plot hearing disorder audiograms
     '''
-    if jupyterpsych is not None and jupyterpsych.is_colab():
+    if jupyterpsych is None:
+        jupyterpsych = JupyterPsych()
+    if jupyterpsych.is_colab():
         figsize = (12, 6)
         plt.rc('font', size=15)
     else:
@@ -273,6 +281,9 @@ class SquareWave():
     '''
 
     def __init__(self, jupyterpsych=None):
+        if jupyterpsych is None:
+            jupyterpsych = JupyterPsych()
+
         self.jupyterpsych = jupyterpsych
         self.widgets = {}
         self.t = np.linspace(0, 1, 400)
@@ -299,7 +310,7 @@ class SquareWave():
         '''
         Update display and sound to match current number of components
         '''
-        self.n = max(min(n, 20), 0)
+        self.n = max(min(n, 20), 1)
         self.widgets['freqvalue'].value = '%d Hz' % (((self.n*2)-1)*500)
         self.plot()
 
@@ -328,6 +339,73 @@ class SquareWave():
             clear_output(wait=True)
             self.widgets['audioplayer'].update_data(self.jupyterpsych.f_s, y)
             display(self.widgets['audioplayer'])
+
+class NaturalSound():
+    '''
+    Demonstration of natural sound without high frequency components
+    '''
+
+    def __init__(self, jupyterpsych=None):
+        if jupyterpsych is None:
+            jupyterpsych = JupyterPsych()
+        self.jupyterpsych = jupyterpsych
+        self.n = [1, 16, 64, 128, 'Presbyacusis']
+        self.f_s, self.full_sound = wavread(Path(Path(__file__).parent, 'wav', 'shipping.wav'))
+        self.f, self.t, self.stft = stft(self.full_sound, self.f_s)
+
+        # spectrogram
+        self.widgets = {}
+        self.widgets['graphoutput'] = widgets.Output()
+
+        # buttons
+        butlist = []
+        def f(but):
+            self.update(but.description)
+        for n in self.n:
+            butlist.append(widgets.Button(description=str(n)))
+            butlist[-1].on_click(f)
+        self.widgets['buttonbox'] = widgets.HBox(butlist)
+
+        self.widgets['audiooutput'] = widgets.Output()
+        self.widgets['audioplayer'] = AudioPlayer(np.ones(100), rate=self.f_s,
+                                                  autoplay=True, hide_on_click=True)
+
+        display(self.widgets['graphoutput'])
+        display(self.widgets['buttonbox'])
+        display(self.widgets['audiooutput'])
+        self.update(128)
+
+    def update(self, n):
+        '''
+        Update plot and sound
+        '''
+        snd_stft = self.stft.copy()
+        snd_stft[int(n)+1:, :] = 0
+        _, snd = istft(snd_stft, self.f_s)
+        with self.widgets['graphoutput']:
+            clear_output(wait=True)
+            self.show_shipping(snd)
+
+    def show_shipping(self, snd):
+        '''
+        Show spectrogram
+        '''
+        f, t, spec = spectrogram(snd, self.f_s, nperseg=2000)
+        log_spec = np.log(spec+0.0001)
+        log_spec = np.maximum(log_spec, -10)
+
+        if self.jupyterpsych.is_colab():
+            figsize = (12, 6)
+            plt.rc('font', size=15)
+        else:
+            figsize = (9, 4)
+
+        _, _ = plt.subplots(figsize=figsize)
+        plt.imshow(log_spec, origin='lower', aspect='auto', clim=(-10, 14),
+                   cmap='hot', extent=[np.min(t), np.max(t), np.min(f), np.max(f)])
+        plt.xlabel('Time (sec)')
+        plt.ylabel('Frequency (Hz)')
+        plt.show()
 
 class TestGraph():
     '''
