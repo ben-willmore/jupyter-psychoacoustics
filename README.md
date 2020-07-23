@@ -6,4 +6,4 @@ To run the classes on [Google Colab](https://colab.research.google.com), use the
 
 * [Audiogram](https://colab.research.google.com/github/ben-willmore/jupyter-psychoacoustics/blob/master/notebooks/Audiogram.ipynb)
 
-* [Sound_Localization](https://colab.research.google.com/github/ben-willmore/jupyter-psychoacoustics/blob/master/notebooks/Sound Localization.ipynb)
+* [Sound Localization](https://colab.research.google.com/github/ben-willmore/jupyter-psychoacoustics/blob/master/notebooks/Sound%20Localization.ipynb)
