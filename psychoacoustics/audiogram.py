@@ -13,7 +13,7 @@ from scipy.io.wavfile import read as wavread
 import ipywidgets as widgets
 from IPython.display import display, clear_output
 from psychoacoustics.jupyterpsych import JupyterPsych, AudioPlayer
-from psychoacoustics.sound import puretone, make_diotic, cosramp_onoff
+from psychoacoustics.sound import puretone, make_diotic, cosramp_onoff, level2amp
 
 class AudiogramExpt():
     '''
@@ -251,14 +251,17 @@ def plot_disorders(jupyterpsych=None):
 
     _, ax = plt.subplots(figsize=figsize)
 
+    # presbyacusis
     freqs = [50, 125, 250, 500, 1000, 2000, 3000, 4000, 5000, 8000]
     levels = [15, 10, 15, 25, 20, 30, 45, 67, 70, 70]
     plt.plot(freqs, levels)
 
+    # conductive hearing loss
     freqs = [50, 125, 250, 500, 1000, 2000, 3000, 4000, 5000, 8000]
-    levels = [35, 30, 35, 30, 24, 30, 35, 0, 30, 30]
+    levels = [35, 30, 35, 30, 24, 30, 35, 40, 30, 30]
     plt.plot(freqs, levels)
 
+    # noise induced hearing loss
     freqs = [50, 125, 250, 500, 1000, 2000, 4000, 8000]
     levels = [7, 5, 5, 5, 10, 20, 50, 20]
     plt.plot(freqs, levels)
@@ -349,7 +352,7 @@ class NaturalSound():
         if jupyterpsych is None:
             jupyterpsych = JupyterPsych()
         self.jupyterpsych = jupyterpsych
-        self.n = [1, 16, 64, 128, 'Presbyacusis']
+        self.n = [4, 8, 16, 64, 128, 'Presbyacusis']
         self.f_s, self.full_sound = wavread(Path(Path(__file__).parent, 'wav', 'shipping.wav'))
         self.f, self.t, self.stft = stft(self.full_sound, self.f_s)
 
@@ -368,7 +371,7 @@ class NaturalSound():
 
         self.widgets['audiooutput'] = widgets.Output()
         self.widgets['audioplayer'] = AudioPlayer(np.ones(100), rate=self.f_s,
-                                                  autoplay=True, hide_on_click=True)
+                                                  autoplay=False, hide_on_click=False)
 
         display(self.widgets['graphoutput'])
         display(self.widgets['buttonbox'])
@@ -379,9 +382,28 @@ class NaturalSound():
         '''
         Update plot and sound
         '''
-        snd_stft = self.stft.copy()
-        snd_stft[int(n)+1:, :] = 0
-        _, snd = istft(snd_stft, self.f_s)
+        try:
+            # Get n as an integer if possible
+            n = int(n)
+
+            # reconstruct sound from STFT using only n channels (and DC)
+            snd_stft = self.stft.copy()
+            snd_stft[n+1:, :] = 0
+            _, snd = istft(snd_stft, self.f_s)
+        except ValueError:
+            # presbyacusis
+            freqs = [50, 125, 250, 500, 1000, 2000, 3000, 4000, 5000, 8000]
+            levels = [15, 10, 15, 25, 20, 30, 45, 67, 70, 70]
+
+            levels = [level2amp(-l) for l in levels]
+            coeff = np.interp(self.f, freqs, levels)
+            coeff[0] = 0 # set DC to zero
+            snd_stft = self.stft.copy()
+            _, snd = istft(snd_stft * coeff[:, np.newaxis], self.f_s)
+        with self.widgets['audiooutput']:
+            clear_output(wait=True)
+            self.widgets['audioplayer'].update_data(self.f_s, snd)
+            display(self.widgets['audioplayer'])
         with self.widgets['graphoutput']:
             clear_output(wait=True)
             self.show_shipping(snd)
