@@ -1,2 +1,2 @@
-recursive-include data wav
+include data/* wav/*
 
