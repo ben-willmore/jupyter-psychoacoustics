@@ -1,3 +1,2 @@
-include psychoacoustics/wav/shipping.wav
-
-
+include psychoacoustics/wav/*
+include psychoacoustics/data/*
