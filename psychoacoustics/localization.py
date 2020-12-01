@@ -220,6 +220,12 @@ class LocalizationExpt():
         if use_test_data:
             self.generate_data()
 
+        if len(self.responses) < len(self.all_trial_params):
+            print('You need to complete all %d trials (in the previous cell) \
+before you can analyse the results.' %
+                  (len(self.all_trial_params)))
+            return
+
         # generate ndarray of responses (0=left, 1=right)
         responses = np.array([1 if r == 'right' else 0 for r in self.responses])
 
