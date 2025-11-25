@@ -130,7 +130,7 @@ def apply_itd(fs, snd, itd_us=100):
     '''
     Apply an ITD to a mono sound, and return stereo sound
     '''
-    shift_samples = np.int(np.abs(itd_us*1000/fs))
+    shift_samples = np.int_(np.abs(itd_us*1000/fs))
     leading = np.concatenate((snd, np.zeros(shift_samples)))
     lagging = np.concatenate((np.zeros(shift_samples), snd))
     if itd_us < 0:
@@ -142,7 +142,7 @@ def ild_stimulus(fs, len_s, f0, ild_dB, level_dB='max'):
     '''
     Make a pure-tone ILD stimulus
     '''
-    n_samples = np.int(len_s*fs)
+    n_samples = np.int_(len_s*fs)
     ramplen_ms = 5
     snd_mono = puretone(fs, n_samples, f0, level_dB=level_dB) * \
         cosramp_onoff(n_samples, ramp_samples=np.round(ramplen_ms/1000*fs))
@@ -152,7 +152,7 @@ def itd_stimulus(fs, len_s, f0, itd_us, level_dB='max'):
     '''
     Make a pure-tone ILD stimulus
     '''
-    n_samples = np.int(len_s*fs)
+    n_samples = np.int_(len_s*fs)
     ramplen_ms = 5
     snd_mono = puretone(fs, n_samples, f0, level_dB=level_dB) * \
         cosramp_onoff(n_samples, ramp_samples=np.round(ramplen_ms/1000*fs))
