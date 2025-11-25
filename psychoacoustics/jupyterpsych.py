@@ -142,7 +142,7 @@ class AudioPlayer(Audio):
                 print('Clipping sound on wav conversion')
             snd = snd * 32767.0
 
-        snd_b = snd.astype(np.int16).tostring()
+        snd_b = snd.astype(np.int16_).tostring()
         output = BytesIO()
         with wave.open(output, 'wb') as s:
             # (nchannels, sampwidth, framerate, nframes, comptype, compname)
